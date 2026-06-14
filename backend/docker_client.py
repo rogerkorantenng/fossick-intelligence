@@ -40,6 +40,7 @@ class DockerMCPClient:
 
         cmd = [
             "docker", "run", "--rm", "-i",
+            "--privileged",  # needed for ewfmount (FUSE)
             "-v", f"{self.case_data_path}:/case_data:ro",
             "-v", f"{mcp_server_path}:/fossick/mcp_server:ro",
             "-e", "PYTHONPATH=/fossick",

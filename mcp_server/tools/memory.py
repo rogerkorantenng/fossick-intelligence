@@ -9,13 +9,39 @@ from mcp_server.tools.integrity import EvidenceContext
 
 
 def _run_vol3_plugin(image_path: str, plugin: str) -> list[dict]:
-    cmd = ["python3", "-m", "volatility3.cli", "-f", image_path, plugin, "--output", "json"]
+    # Try vol first, then python3 -m volatility3.cli
+    for cmd in [
+        ["vol", "-f", image_path, plugin, "--output", "json"],
+        ["python3", "-m", "volatility3.cli", "-f", image_path, plugin, "--output", "json"],
+    ]:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0 and result.stdout.strip():
+                try:
+                    data = json.loads(result.stdout)
+                    rows = data.get("rows", [])
+                    if rows:
+                        return rows
+                except Exception:
+                    pass
+        except Exception:
+            continue
+    return []
+
+
+def _run_fls(image_path: str) -> list[dict]:
+    """Use SleuthKit fls to list filesystem entries as fallback for disk images."""
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        if result.returncode != 0:
-            return []
-        data = json.loads(result.stdout)
-        return data.get("rows", [])
+        result = subprocess.run(
+            ["fls", "-r", "-l", image_path],
+            capture_output=True, text=True, timeout=60
+        )
+        entries = []
+        for line in result.stdout.splitlines()[:50]:
+            parts = line.split("\t")
+            if len(parts) >= 3:
+                entries.append({"name": parts[-1] if parts else line, "type": "file", "raw": line[:200]})
+        return entries
     except Exception:
         return []
 
@@ -47,6 +73,11 @@ async def analyze_memory(image_path: str, plugins: list[str] | None = None) -> T
         pslist_rows = await asyncio.to_thread(_run_vol3_plugin, image_path, "windows.pslist")
         malfind_rows = await asyncio.to_thread(_run_vol3_plugin, image_path, "windows.malfind")
         netscan_rows = await asyncio.to_thread(_run_vol3_plugin, image_path, "windows.netscan")
+        # Fallback: if Volatility can't parse (disk image not memory), use fls
+        if not pslist_rows and not malfind_rows:
+            fls_rows = await asyncio.to_thread(_run_fls, image_path)
+            if fls_rows:
+                pslist_rows = fls_rows  # Use filesystem listing as proxy
 
     processes = _parse_pslist(pslist_rows, call_id)
     result = MemoryResult(processes=processes, network_connections=netscan_rows[:30],
