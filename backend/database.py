@@ -25,7 +25,16 @@ async def init_db(db: aiosqlite.Connection) -> None:
             error TEXT
         )
     """)
-    await db.commit()
+    # Add new columns if they don't exist yet (safe on existing DBs)
+    for col, definition in [
+        ("agent_messages", "TEXT NOT NULL DEFAULT '[]'"),
+        ("self_corrections_applied", "INTEGER DEFAULT 0"),
+    ]:
+        try:
+            await db.execute(f"ALTER TABLE investigations ADD COLUMN {col} {definition}")
+            await db.commit()
+        except Exception:
+            pass  # column already exists
 
 
 async def save_investigation(db: aiosqlite.Connection, report: InvestigationReport) -> None:
