@@ -65,34 +65,52 @@ def _extract_inode(image_ref: str | list, offset: str, inode: str, outpath: str)
 
 
 def _get_startup_items(image_ref: str | list, offset: str, call_id: str) -> list[PersistenceIndicator]:
-    """Extract Startup folder contents using fls."""
+    """Extract Windows Startup folder contents using fls.
+
+    Two-pass approach: first find all Startup directory inodes via fls -r,
+    then list each Startup directory non-recursively to get only direct children.
+    This avoids depth-tracking bugs in recursive output parsing.
+    """
     indicators = []
     images = image_ref if isinstance(image_ref, list) else [image_ref]
+
+    # Pass 1: find all directory inodes named exactly "Startup"
     result = subprocess.run(
         ["fls", "-r", "-f", "ntfs", "-o", offset] + images,
         capture_output=True, text=True, timeout=120
     )
 
-    in_startup = False
+    startup_inodes = []
     for line in result.stdout.splitlines():
-        name_lower = Path(line.split(":")[-1].strip()).name.lower() if ":" in line else ""
-
-        if "Startup" in line and "d/d" in line:
-            in_startup = True
+        if "d/d" not in line or ":" not in line:
             continue
+        name = line.split(":")[-1].strip()
+        if name != "Startup":
+            continue
+        # Extract inode number — format is "... d/d INODE:  Name"
+        # Inode may look like "3723" or "3723-128-4"
+        after_dd = line.split("d/d")[-1].split(":")[0].strip()
+        inode = after_dd.split("-")[0].strip()
+        if inode.isdigit():
+            startup_inodes.append(inode)
 
-        if in_startup and ("r/r" in line or "r/-" in line) and ":" in line:
+    # Pass 2: list each Startup directory's direct children (non-recursive)
+    for inode in startup_inodes:
+        dir_result = subprocess.run(
+            ["fls", "-f", "ntfs", "-o", offset] + images + [inode],
+            capture_output=True, text=True, timeout=30
+        )
+        for line in dir_result.stdout.splitlines():
+            if ("r/r" not in line and "r/-" not in line) or ":" not in line:
+                continue
             name = line.split(":")[-1].strip()
             name_lower = name.lower()
-
             if name_lower in BENIGN_STARTUP or name_lower == "desktop.ini":
                 continue
-
             is_suspicious = (
                 name_lower in SUSPICIOUS_STARTUP or
                 any(name_lower.endswith(ext) for ext in [".exe", ".dll", ".bat", ".vbs", ".ps1"])
             )
-
             if is_suspicious:
                 indicators.append(PersistenceIndicator(
                     source="scheduled_task",
@@ -100,10 +118,8 @@ def _get_startup_items(image_ref: str | list, offset: str, call_id: str) -> list
                     path=f"Startup\\{name}",
                     evidence_ref=call_id,
                 ))
-        elif in_startup and "d/d" not in line and "Startup" not in line:
-            in_startup = False
 
-    return indicators
+    return indicators[:50]
 
 
 def _parse_registry_hive(hive_path: str, call_id: str) -> list[PersistenceIndicator]:
@@ -115,21 +131,21 @@ def _parse_registry_hive(hive_path: str, call_id: str) -> list[PersistenceIndica
 
         hive = RegistryHive(hive_path)
 
-        # Check common persistence keys
+        # Check common persistence keys (try canonical path only — regipy is case-insensitive)
         run_keys = [
             "\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
             "\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
-            "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
-            "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
         ]
 
+        seen_names = set()
         for key_path in run_keys:
             try:
                 key = hive.get_key(key_path)
                 for val in key.get_values():
                     name = str(val.name or "")
                     data = str(val.value or "")
-                    if name and data and name != "(Default)":
+                    if name and data and name != "(Default)" and name not in seen_names:
+                        seen_names.add(name)
                         indicators.append(PersistenceIndicator(
                             source="registry",
                             name=name,
@@ -218,17 +234,20 @@ async def get_persistence(image_path: str) -> ToolCallResult:
                     capture_output=True, text=True, timeout=120
                 )
 
-                # Find all NTUSER.DAT inodes
+                # Find all NTUSER.DAT inodes — format: "++ r/r 10226-128-4:\tNTUSER.DAT"
                 ntuser_inodes = []
                 for line in result.stdout.splitlines():
-                    if "NTUSER.DAT" in line and "r/r" in line and "LOG" not in line:
-                        parts = line.split()
-                        for p in parts:
-                            if "-128-" in p or "-128-4" in p:
-                                ntuser_inodes.append(p.strip(":"))
-                                break
+                    if "NTUSER.DAT" not in line or "r/r" not in line or "LOG" in line:
+                        continue
+                    name = line.split(":")[-1].strip().lower()
+                    if name != "ntuser.dat":
+                        continue
+                    # Extract inode from between "r/r " and ":"
+                    after_rr = line.split("r/r")[-1].split(":")[0].strip()
+                    if after_rr:
+                        ntuser_inodes.append(after_rr)
 
-                for i, inode in enumerate(ntuser_inodes[:3]):  # max 3 users
+                for i, inode in enumerate(ntuser_inodes[:6]):  # check up to 6 users
                     hive_path = os.path.join(tmpdir, f"ntuser_{i}.dat")
                     extracted = await asyncio.to_thread(
                         _extract_inode, segments, offset, inode, hive_path
