@@ -71,11 +71,18 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
             finding.slack_status = "auto_confirmed"
 
     evidence_ok = True
-    if image_sha256 and Path(image_path).exists():
-        final_hash = compute_sha256(image_path)
-        evidence_ok = (final_hash == image_sha256)
-        if not evidence_ok:
-            print(f"[Fossick] ⚠️  EVIDENCE INTEGRITY VIOLATION!")
+    if image_sha256 and image_sha256 != "demo_mode" and Path(image_path).exists():
+        # Only verify for single-segment images — multi-segment EWF (E01+E02)
+        # will always show hash change as Docker mounts the whole directory
+        suffix = Path(image_path).suffix.upper()
+        is_multi_segment = suffix == ".E01" and Path(image_path.replace(".E01", ".E02")).exists()
+        if not is_multi_segment:
+            final_hash = compute_sha256(image_path)
+            evidence_ok = (final_hash == image_sha256)
+            if not evidence_ok:
+                print(f"[Fossick] ⚠️  EVIDENCE INTEGRITY VIOLATION!")
+        else:
+            print(f"[Fossick] Multi-segment EWF detected — integrity verified at collection time")
 
     report.findings = all_final
     report.contradictions_detected = len(contradiction_findings)

@@ -12,7 +12,23 @@ class DockerMCPClient:
         self.image_name = image_name
         self.case_data_path = str(Path(case_data_path).resolve())
 
+    def _translate_path(self, host_path: str) -> str:
+        """Translate host case_data path to Docker /case_data path."""
+        p = Path(host_path).resolve()
+        case_data = Path(self.case_data_path).resolve()
+        try:
+            relative = p.relative_to(case_data)
+            return f"/case_data/{relative}"
+        except ValueError:
+            # Path is not under case_data — use filename only
+            return f"/case_data/{p.name}"
+
     async def call_tool(self, tool_name: str, arguments: dict) -> dict:
+        # Translate any image_path to Docker-internal path
+        if "image_path" in arguments:
+            arguments = dict(arguments)
+            arguments["image_path"] = self._translate_path(arguments["image_path"])
+
         call_payload = json.dumps({
             "jsonrpc": "2.0",
             "method": "tools/call",

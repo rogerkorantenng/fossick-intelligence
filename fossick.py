@@ -112,7 +112,7 @@ def format_finding(finding: dict, index: int) -> str:
         f"      {finding.get('description', '')[:200]}\n"
         f"      {DIM}Confidence: {CONF_COLOR.get(conf, GRAY)}{conf}{RESET}  "
         f"{DIM}Sources: {sources}{RESET}"
-        + (f"\n      {DIM}Timestamp: {finding['timestamp']}{RESET}" if finding.get("timestamp") else "")
+        + (f"\n      {DIM}Timestamp: {str(finding['timestamp'])[:19]}{RESET}" if finding.get("timestamp") else "")
         + (f"\n      {DIM}Tool calls: {', '.join(finding['tool_call_ids'])}{RESET}" if finding.get("tool_call_ids") else "")
     )
 
@@ -126,8 +126,8 @@ def print_report(report: dict):
     sha = report.get('image_sha256', '')
     if sha and sha != 'demo_mode':
         _print(f"  SHA-256:    {DIM}{sha[:48]}...{RESET}")
-    _print(f"  Started:    {report.get('started_at', '')[:19]}")
-    _print(f"  Completed:  {report.get('completed_at', '')[:19]}")
+    _print(f"  Started:    {str(report.get('started_at', ''))[:19]}")
+    _print(f"  Completed:  {str(report.get('completed_at', '') or '')[:19]}")
     integrity = report.get("evidence_integrity_verified", True)
     _print(f"  Evidence:   {GREEN + '✓ VERIFIED' + RESET if integrity else RED + '⚠ VIOLATION DETECTED' + RESET}")
     _print(f"  {'─' * 56}")
