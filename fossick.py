@@ -792,8 +792,9 @@ async def repl():
 
     def completer(text, state):
         buf = readline.get_line_buffer()
-        if buf.startswith("analyze ") or buf == "analyze":
-            candidates = [f"analyze {demo_image}"] if f"analyze {demo_image}".startswith(buf) else []
+        if buf.startswith("analyze "):
+            # completing the image path argument
+            candidates = [demo_image] if demo_image.startswith(text) else []
         else:
             candidates = [c for c in commands if c.startswith(text)]
         candidates.append(None)
@@ -851,7 +852,8 @@ async def repl():
             elif cmd == "analyze":
                 if not args:
                     print(f"\n  {DIM_W}no image path given — running demo case (M57-Jean){RESET}\n")
-                    args = ["case_data/nps-2008-jean.E01", "--case-id", "m57-demo"]
+                    _demo = str(Path(__file__).parent / "case_data" / "nps-2008-jean.E01")
+                    args = [_demo, "--case-id", "m57-demo"]
                 image_path = args[0]
                 case_id, output, i = None, "table", 1
                 while i < len(args):
