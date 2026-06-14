@@ -248,11 +248,8 @@ def _mount_ewf_and_analyze(image_path: str, call_id: str) -> list[TimelineEvent]
     except Exception as e:
         events.append(TimelineEvent(
             timestamp=datetime.now(), source="error", artifact_type="other",
-            description=f"EWF mount/analysis error: {e}", evidence_ref=call_id,
+            description=f"Analysis error: {e}", evidence_ref=call_id,
         ))
-    finally:
-        subprocess.run(["umount", mount_point], capture_output=True)
-        subprocess.run(["rmdir", mount_point], capture_output=True)
 
     return events
 
