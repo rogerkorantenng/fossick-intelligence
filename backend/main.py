@@ -15,7 +15,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Fossick — Autonomous DFIR", lifespan=lifespan)
+app = FastAPI(title="Fossick Intelligence — Autonomous DFIR", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,4 +30,4 @@ app.include_router(slack_router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "Fossick DFIR Agent"}
+    return {"status": "ok", "service": "Fossick Intelligence"}

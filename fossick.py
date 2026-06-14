@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.13
 """
-Fossick — Autonomous DFIR Agent
+Fossick Intelligence — Autonomous DFIR
 Interactive REPL — type 'fossick' to start, Ctrl+C to exit.
 """
 import asyncio
@@ -34,7 +34,7 @@ CONF_COLOR = {"HIGH": RED, "MEDIUM": ORANGE, "LOW": YELLOW}
 
 BANNER = f"""
 {BOLD}{BLUE}  ╔══════════════════════════════════════════════════╗
-  ║  {RED}F O S S I C K{BLUE}  ─  Autonomous DFIR Agent          ║
+  ║  {RED}F O S S I C K  I N T E L L I G E N C E          ║
   ║  {DIM}Finds evil. Shows its work. Catches itself lying.{BLUE}  ║
   ╚══════════════════════════════════════════════════╝{RESET}
 """
