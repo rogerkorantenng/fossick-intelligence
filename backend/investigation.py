@@ -37,19 +37,28 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
     print(f"[Fossick] Starting {investigation_id} on {image_path}")
     print(f"[Fossick] SHA-256: {image_sha256 or 'N/A (demo mode)'}")
 
-    results = await asyncio.gather(
-        TimelineAgent(docker_client).run(image_path),
-        MemoryAgent(docker_client).run(image_path),
-        PersistenceAgent(docker_client).run(image_path),
-        return_exceptions=True,
-    )
+    # Run agents sequentially — Docker stdio breaks under concurrent asyncio gather
+    # Each agent spawns its own Docker container; sequential avoids event loop contention
+    def safe_run(coro_result, default=([], [])):
+        return coro_result if not isinstance(coro_result, Exception) else default
 
-    def safe(r, default):
-        return r if not isinstance(r, Exception) else default
+    try:
+        timeline_findings, timeline_logs = await TimelineAgent(docker_client).run(image_path)
+    except Exception as e:
+        print(f"[Fossick] Timeline agent error: {e}")
+        timeline_findings, timeline_logs = [], []
 
-    timeline_findings, timeline_logs = safe(results[0], ([], []))
-    memory_findings, memory_logs = safe(results[1], ([], []))
-    persistence_findings, persistence_logs = safe(results[2], ([], []))
+    try:
+        memory_findings, memory_logs = await MemoryAgent(docker_client).run(image_path)
+    except Exception as e:
+        print(f"[Fossick] Memory agent error: {e}")
+        memory_findings, memory_logs = [], []
+
+    try:
+        persistence_findings, persistence_logs = await PersistenceAgent(docker_client).run(image_path)
+    except Exception as e:
+        print(f"[Fossick] Persistence agent error: {e}")
+        persistence_findings, persistence_logs = [], []
 
     all_logs = list(timeline_logs) + list(memory_logs) + list(persistence_logs)
     print(f"[Fossick] Timeline:{len(timeline_findings)} Memory:{len(memory_findings)} Persistence:{len(persistence_findings)}")
