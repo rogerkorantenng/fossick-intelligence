@@ -498,6 +498,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     try:
         tl_findings, tl_logs = await TimelineAgent(docker_client).run(image_path)
     except Exception as e:
+        print(f"  {RED}✗  Timeline agent error: {e}{RESET}")
         tl_findings, tl_logs = [], []
     ms = tl_logs[0].duration_ms if tl_logs else 0
     _agent_done(BLUE, "1", "Timeline Agent", len(tl_findings), ms)
@@ -510,6 +511,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     try:
         mem_findings, mem_logs = await MemoryAgent(docker_client).run(image_path)
     except Exception as e:
+        print(f"  {RED}✗  Memory agent error: {e}{RESET}")
         mem_findings, mem_logs = [], []
     ms = mem_logs[0].duration_ms if mem_logs else 0
     _agent_done(RED, "2", "Memory Agent", len(mem_findings), ms)
@@ -522,6 +524,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     try:
         per_findings, per_logs = await PersistenceAgent(docker_client).run(image_path)
     except Exception as e:
+        print(f"  {RED}✗  Persistence agent error: {e}{RESET}")
         per_findings, per_logs = [], []
     ms = per_logs[0].duration_ms if per_logs else 0
     _agent_done(ORANGE, "3", "Persistence Agent", len(per_findings), ms)

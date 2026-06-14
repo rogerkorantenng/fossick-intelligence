@@ -28,10 +28,20 @@ class PersistenceAgent(AgentBase):
         if raw.get("error") or not data.get("indicators"):
             return [], [log]
 
-        prompt = f"""You are a persistence specialist. Analyze AmCache, Prefetch, and Registry data.
-Identify malicious persistence, unusual execution patterns, suspicious registry keys.
+        prompt = f"""You are a Windows persistence forensics analyst.
+Analyze these persistence indicators extracted from a disk image:
+- Startup folder entries (files placed in Windows Startup folders)
+- Registry Run/RunOnce key values
 
 Indicators: {json.dumps(data.get('indicators', [])[:30], default=str)}
+
+For each indicator assess:
+- Is this expected/benign (Windows defaults, well-known software)?
+- Is this suspicious (unusual executable in Startup, obfuscated name, unknown path)?
+- What is the likely malicious purpose if suspicious?
+
+Focus on WINWORD.EXE in Startup (unusual), unknown DLLs, executables with typosquatting names.
+Ignore desktop.ini, common browser/office shortcuts unless truly unusual.
 
 Return JSON array only:
 [{{"severity":"critical|high|medium|low","title":"...","description":"...","path":"..."}}]"""
