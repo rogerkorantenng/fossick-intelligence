@@ -10,64 +10,282 @@ import os
 import readline
 import argparse
 import subprocess
+import time
+import threading
 from pathlib import Path
 from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent))
 os.environ.setdefault("ANTHROPIC_API_KEY", "")
 
-# ── ANSI colors ──────────────────────────────────────────────────────────────
-RED    = "\033[91m"
-ORANGE = "\033[93m"
-YELLOW = "\033[33m"
-GREEN  = "\033[92m"
-BLUE   = "\033[94m"
-CYAN   = "\033[96m"
-PURPLE = "\033[95m"
-GRAY   = "\033[90m"
+# ── ANSI ──────────────────────────────────────────────────────────────────────
+RED    = "\033[38;2;239;68;68m"      # red-500
+ORANGE = "\033[38;2;249;115;22m"     # orange-500
+YELLOW = "\033[38;2;234;179;8m"      # yellow-500
+GREEN  = "\033[38;2;34;197;94m"      # green-500
+BLUE   = "\033[38;2;59;130;246m"     # blue-500
+CYAN   = "\033[38;2;6;182;212m"      # cyan-500
+PURPLE = "\033[38;2;168;85;247m"     # purple-500
+GRAY   = "\033[38;2;107;114;128m"    # gray-500
+LGRAY  = "\033[38;2;156;163;175m"    # gray-400
+WHITE  = "\033[38;2;248;250;252m"    # slate-50
+DIM_W  = "\033[38;2;71;85;105m"      # slate-600
+
 BOLD   = "\033[1m"
 DIM    = "\033[2m"
+ITALIC = "\033[3m"
 RESET  = "\033[0m"
+CLEAR_LINE = "\033[2K\r"
 
 SEV_COLOR  = {"critical": RED, "high": ORANGE, "medium": YELLOW, "low": GRAY}
+SEV_BG = {
+    "critical": "\033[48;2;127;29;29m",
+    "high":     "\033[48;2;120;53;15m",
+    "medium":   "\033[48;2;113;63;18m",
+    "low":      "\033[48;2;30;41;59m",
+}
 CONF_COLOR = {"HIGH": RED, "MEDIUM": ORANGE, "LOW": YELLOW}
 
+# ── Banner ────────────────────────────────────────────────────────────────────
+
 BANNER = f"""
-{BOLD}{BLUE}  ╔══════════════════════════════════════════════════╗
-  ║  {RED}F O S S I C K  I N T E L L I G E N C E          ║
-  ║  {DIM}Finds evil. Shows its work. Catches itself lying.{BLUE}  ║
-  ╚══════════════════════════════════════════════════╝{RESET}
+{BOLD}{WHITE}  ╭─────────────────────────────────────────────────────╮
+  │                                                     │
+  │   {RED}▓{ORANGE}▓{YELLOW}▓{RESET}{BOLD}{WHITE}  {WHITE}FOSSICK INTELLIGENCE{RESET}{BOLD}{WHITE}                        │
+  │       {DIM}{LGRAY}Autonomous DFIR · Finds Evil · Shows Its Work{RESET}{BOLD}{WHITE}  │
+  │                                                     │
+  ╰─────────────────────────────────────────────────────╯{RESET}
 """
 
-HELP_TEXT = f"""
-{BOLD}Available commands:{RESET}
-
-  {CYAN}analyze{RESET} {DIM}<image_path>{RESET} {DIM}[--case-id <id>] [--output json|table]{RESET}
-      Run autonomous DFIR investigation on a disk or memory image.
-      {DIM}Example: analyze case_data/disk.E01 --case-id incident-001{RESET}
-
-  {CYAN}list{RESET}
-      Show all past investigations with status and findings count.
-
-  {CYAN}report{RESET} {DIM}<investigation_id>{RESET}
-      Display full report for an investigation (supports ID prefix).
-      {DIM}Example: report abc12345{RESET}
-
-  {CYAN}status{RESET}
-      Show system status — Docker, API keys, case data, investigations.
-
-  {CYAN}clear{RESET}
-      Clear the terminal screen.
-
-  {CYAN}help{RESET}
-      Show this help message.
-
-  {CYAN}exit{RESET} {DIM}or{RESET} {CYAN}quit{RESET} {DIM}or{RESET} {BOLD}Ctrl+C{RESET}
-      Exit Fossick.
-"""
+def print_banner():
+    print(BANNER)
+    print(f"  {DIM_W}Type {CYAN}help{RESET} {DIM_W}for commands  ·  {CYAN}Ctrl+C{RESET} {DIM_W}to exit{RESET}\n")
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# ── Spinner ───────────────────────────────────────────────────────────────────
+
+class Spinner:
+    FRAMES = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"]
+
+    def __init__(self, label: str, color: str = CYAN):
+        self.label = label
+        self.color = color
+        self._running = False
+        self._thread = None
+        self._idx = 0
+
+    def __enter__(self):
+        self._running = True
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+        return self
+
+    def _spin(self):
+        while self._running:
+            frame = self.FRAMES[self._idx % len(self.FRAMES)]
+            print(f"  {self.color}{frame}{RESET}  {DIM_W}{self.label}{RESET}", end="\r", flush=True)
+            self._idx += 1
+            time.sleep(0.08)
+
+    def update(self, label: str):
+        self.label = label
+
+    def __exit__(self, *_):
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=0.2)
+        print(CLEAR_LINE, end="", flush=True)
+
+
+# ── Layout helpers ────────────────────────────────────────────────────────────
+
+def _hr(color: str = DIM_W, width: int = 54):
+    print(f"  {color}{'─' * width}{RESET}")
+
+def _blank():
+    print()
+
+def _label(text: str):
+    print(f"  {DIM}{LGRAY}{text.upper()}{RESET}")
+
+def _kv(key: str, val: str, key_w: int = 14):
+    print(f"  {DIM_W}{key:<{key_w}}{RESET}  {val}")
+
+def _bullet(text: str, color: str = DIM_W, indent: int = 4):
+    print(f"{' ' * indent}{color}·{RESET}  {text}")
+
+def _tag(text: str, fg: str, bg: str = "") -> str:
+    return f"{bg}{fg}{BOLD} {text} {RESET}"
+
+def _badge(text: str, color: str) -> str:
+    return f"{color}{DIM}[{RESET}{color}{text}{DIM}]{RESET}"
+
+def _check(ok: bool, yes: str = "yes", no: str = "no") -> str:
+    return f"{GREEN}✓  {yes}{RESET}" if ok else f"{RED}✗  {no}{RESET}"
+
+def _dot(color: str) -> str:
+    return f"{color}●{RESET}"
+
+
+# ── Severity chip ─────────────────────────────────────────────────────────────
+
+def sev_chip(sev: str) -> str:
+    chips = {
+        "critical": f"{RED}{BOLD} CRITICAL {RESET}",
+        "high":     f"{ORANGE}{BOLD} HIGH     {RESET}",
+        "medium":   f"{YELLOW}{BOLD} MEDIUM   {RESET}",
+        "low":      f"{GRAY}{BOLD} LOW      {RESET}",
+    }
+    return chips.get(sev, sev.upper())
+
+
+def conf_chip(conf: str) -> str:
+    chips = {
+        "HIGH":   f"{RED}■■■{RESET} {RED}HIGH{RESET}",
+        "MEDIUM": f"{ORANGE}■■{DIM_W}■{RESET} {ORANGE}MED{RESET}",
+        "LOW":    f"{YELLOW}■{DIM_W}■■{RESET} {YELLOW}LOW{RESET}",
+    }
+    return chips.get(conf, conf)
+
+
+# ── Report printer ────────────────────────────────────────────────────────────
+
+def print_finding(finding: dict, index: int):
+    sev   = finding.get("severity", "low")
+    conf  = finding.get("confidence", "LOW")
+    color = SEV_COLOR.get(sev, GRAY)
+    is_contra = finding.get("contradiction", False)
+
+    # Finding header line
+    contra_tag = f"  {YELLOW}⚡ CONTRADICTION{RESET}" if is_contra else ""
+    print(f"\n  {color}{'━' * 54}{RESET}")
+    print(f"  {sev_chip(sev)}  {BOLD}{WHITE}{finding.get('title', '')}{RESET}{contra_tag}")
+    print(f"  {color}{'━' * 54}{RESET}")
+
+    # Description
+    desc = finding.get("description", "")
+    if desc:
+        # Word-wrap at 60 chars
+        words = desc.split()
+        line, lines = [], []
+        for w in words:
+            if sum(len(x)+1 for x in line) + len(w) > 60:
+                lines.append(" ".join(line))
+                line = [w]
+            else:
+                line.append(w)
+        if line:
+            lines.append(" ".join(line))
+        for l in lines:
+            print(f"  {LGRAY}{l}{RESET}")
+
+    # Metadata row
+    parts = []
+    parts.append(f"Confidence  {conf_chip(conf)}")
+    sources = finding.get("sources", [])
+    if sources:
+        parts.append(f"Sources  {CYAN}{' + '.join(sources)}{RESET}")
+    ts = finding.get("timestamp")
+    if ts:
+        parts.append(f"{DIM_W}{str(ts)[:16]}{RESET}")
+    print(f"\n  {('   ').join(parts)}")
+
+    # Tool call refs
+    calls = finding.get("tool_call_ids", [])
+    if calls:
+        print(f"  {DIM_W}refs  {ITALIC}{', '.join(calls)}{RESET}")
+
+
+def print_report(report: dict):
+    findings     = report.get("findings", [])
+    contradictions = [f for f in findings if f.get("contradiction")]
+    regular      = [f for f in findings if not f.get("contradiction")]
+    by_sev       = {s: sum(1 for f in regular if f.get("severity") == s)
+                    for s in ["critical", "high", "medium", "low"]}
+    logs         = report.get("execution_log", [])
+    integrity    = report.get("evidence_integrity_verified", True)
+
+    _blank()
+    # ── Header block ──
+    print(f"  {BOLD}{WHITE}{'━' * 54}{RESET}")
+    print(f"  {BOLD}{WHITE}  INVESTIGATION REPORT{RESET}")
+    print(f"  {BOLD}{WHITE}{'━' * 54}{RESET}")
+    _blank()
+    _kv("case", f"{CYAN}{BOLD}{report.get('case_id')}{RESET}")
+    _kv("image", f"{DIM_W}{report.get('image_path')}{RESET}")
+    sha = report.get('image_sha256', '')
+    if sha and sha != 'demo_mode':
+        _kv("sha-256", f"{DIM_W}{sha[:48]}…{RESET}")
+    started   = str(report.get('started_at', ''))[:19]
+    completed = str(report.get('completed_at', '') or '')[:19]
+    _kv("started", f"{DIM_W}{started}{RESET}")
+    _kv("completed", f"{DIM_W}{completed}{RESET}")
+    _kv("evidence", _check(integrity, "integrity verified", "⚠ violation detected"))
+    _blank()
+
+    # ── Summary pills ──
+    _label("summary")
+    _blank()
+    pills = []
+    if by_sev["critical"]: pills.append(f"{RED}{BOLD}{by_sev['critical']} critical{RESET}")
+    if by_sev["high"]:     pills.append(f"{ORANGE}{BOLD}{by_sev['high']} high{RESET}")
+    if by_sev["medium"]:   pills.append(f"{YELLOW}{by_sev['medium']} medium{RESET}")
+    if by_sev["low"]:      pills.append(f"{GRAY}{by_sev['low']} low{RESET}")
+    if not pills:          pills.append(f"{DIM_W}no findings{RESET}")
+    print(f"  {'  ·  '.join(pills)}")
+    if contradictions:
+        print(f"  {YELLOW}⚡  {len(contradictions)} contradiction(s) detected{RESET}")
+    _blank()
+
+    # ── Contradictions ──
+    if contradictions:
+        _label("contradictions")
+        for i, f in enumerate(contradictions, 1):
+            print_finding(f, i)
+        _blank()
+
+    # ── Findings ──
+    if regular:
+        _label(f"findings  ({len(regular)})")
+        idx = 1
+        for sev in ["critical", "high", "medium", "low"]:
+            for f in regular:
+                if f.get("severity") == sev:
+                    print_finding(f, idx)
+                    idx += 1
+        _blank()
+
+    # ── Agent execution log ──
+    if logs:
+        _label("agent execution log")
+        _blank()
+        # Column headers
+        print(f"  {DIM_W}{'AGENT':<20}  {'TOOL':<26}  {'TIME':>8}  {'HASH'}  RESULT{RESET}")
+        print(f"  {DIM_W}{'─'*20}  {'─'*26}  {'─'*8}  {'─'*4}  {'─'*20}{RESET}")
+        for log in logs:
+            ms   = log.get("duration_ms", 0)
+            dur  = f"{ms/1000:.1f}s" if ms > 1000 else f"{ms}ms"
+            hash_ok = f"{GREEN}✓{RESET}   " if log.get("hash_verified") else f"{DIM_W}─{RESET}   "
+            spol = f" {RED}⚠ SPOLIATION{RESET}" if log.get("spoliation_detected") else ""
+            agent_color = {
+                "TimelineAgent":    BLUE,
+                "MemoryAgent":      RED,
+                "PersistenceAgent": ORANGE,
+                "VerifierAgent":    PURPLE,
+            }.get(log.get("agent",""), LGRAY)
+
+            print(
+                f"  {agent_color}{BOLD}{log.get('agent',''):<20}{RESET}  "
+                f"{DIM_W}{log.get('tool_name',''):<26}{RESET}  "
+                f"{CYAN}{dur:>8}{RESET}  {hash_ok}{spol}"
+            )
+            if log.get("result_summary"):
+                print(f"  {DIM_W}{'':20}  {'':26}  {'':8}    └ {log['result_summary']}{RESET}")
+
+    print(f"\n  {DIM_W}{'━' * 54}{RESET}\n")
+
+
+# ── Commands ──────────────────────────────────────────────────────────────────
 
 def _load_env() -> dict:
     env = {}
@@ -80,145 +298,50 @@ def _load_env() -> dict:
     return env
 
 
-def _print(msg: str = ""):
-    print(msg)
-
-
-def _ok(msg: str):
-    print(f"  {GREEN}✓{RESET} {msg}")
-
-
-def _warn(msg: str):
-    print(f"  {YELLOW}⚠{RESET} {msg}")
-
-
-def _err(msg: str):
-    print(f"  {RED}✗{RESET} {msg}")
-
-
-def _section(title: str):
-    print(f"\n  {BOLD}{title}{RESET}")
-    print(f"  {'─' * (len(title) + 2)}")
-
-
-def format_finding(finding: dict, index: int) -> str:
-    sev   = finding.get("severity", "low")
-    conf  = finding.get("confidence", "LOW")
-    color = SEV_COLOR.get(sev, GRAY)
-    contradiction = f"  {YELLOW}⚡ CONTRADICTION{RESET}" if finding.get("contradiction") else ""
-    sources = " + ".join(finding.get("sources", []))
-    return (
-        f"\n  {color}{BOLD}[{index}] {sev.upper()} — {finding.get('title', '')}{RESET}{contradiction}\n"
-        f"      {finding.get('description', '')[:200]}\n"
-        f"      {DIM}Confidence: {CONF_COLOR.get(conf, GRAY)}{conf}{RESET}  "
-        f"{DIM}Sources: {sources}{RESET}"
-        + (f"\n      {DIM}Timestamp: {str(finding['timestamp'])[:19]}{RESET}" if finding.get("timestamp") else "")
-        + (f"\n      {DIM}Tool calls: {', '.join(finding['tool_call_ids'])}{RESET}" if finding.get("tool_call_ids") else "")
-    )
-
-
-def print_report(report: dict):
-    _print(f"\n  {BOLD}{'═' * 56}{RESET}")
-    _print(f"  {BOLD}  FOSSICK INVESTIGATION REPORT{RESET}")
-    _print(f"  {'═' * 56}")
-    _print(f"  Case ID:    {BLUE}{report.get('case_id')}{RESET}")
-    _print(f"  Image:      {report.get('image_path')}")
-    sha = report.get('image_sha256', '')
-    if sha and sha != 'demo_mode':
-        _print(f"  SHA-256:    {DIM}{sha[:48]}...{RESET}")
-    _print(f"  Started:    {str(report.get('started_at', ''))[:19]}")
-    _print(f"  Completed:  {str(report.get('completed_at', '') or '')[:19]}")
-    integrity = report.get("evidence_integrity_verified", True)
-    _print(f"  Evidence:   {GREEN + '✓ VERIFIED' + RESET if integrity else RED + '⚠ VIOLATION DETECTED' + RESET}")
-    _print(f"  {'─' * 56}")
-
-    findings     = report.get("findings", [])
-    contradictions = [f for f in findings if f.get("contradiction")]
-    regular      = [f for f in findings if not f.get("contradiction")]
-    by_sev       = {s: sum(1 for f in regular if f.get("severity") == s)
-                    for s in ["critical", "high", "medium", "low"]}
-
-    _print(f"\n  {BOLD}SUMMARY{RESET}")
-    _print(
-        f"  {RED}Critical: {by_sev['critical']}{RESET}  "
-        f"{ORANGE}High: {by_sev['high']}{RESET}  "
-        f"{YELLOW}Medium: {by_sev['medium']}{RESET}  "
-        f"{GRAY}Low: {by_sev['low']}{RESET}"
-    )
-    _print(f"  Contradictions: {len(contradictions)}  |  Total findings: {len(findings)}")
-
-    if contradictions:
-        _print(f"\n  {BOLD}{YELLOW}⚡ CONTRADICTIONS ({len(contradictions)}){RESET}")
-        for i, f in enumerate(contradictions, 1):
-            _print(format_finding(f, i))
-
-    if regular:
-        _print(f"\n  {BOLD}FINDINGS ({len(regular)}){RESET}")
-        idx = 1
-        for sev in ["critical", "high", "medium", "low"]:
-            for f in regular:
-                if f.get("severity") == sev:
-                    _print(format_finding(f, idx))
-                    idx += 1
-
-    logs = report.get("execution_log", [])
-    if logs:
-        _print(f"\n  {BOLD}AGENT EXECUTION LOG{RESET}")
-        for log in logs:
-            ms       = log.get("duration_ms", 0)
-            dur      = f"{ms/1000:.1f}s" if ms > 1000 else f"{ms}ms"
-            hash_ok  = f"{GREEN}✓{RESET}" if log.get("hash_verified") else f"{DIM}─{RESET}"
-            spoliation = f" {RED}⚠ SPOLIATION{RESET}" if log.get("spoliation_detected") else ""
-            _print(
-                f"  {PURPLE}{log.get('agent',''):<20}{RESET}  "
-                f"{DIM}{log.get('tool_name',''):<26}{RESET}  "
-                f"{dur:>8}  {hash_ok}{spoliation}"
-            )
-            if log.get("result_summary"):
-                _print(f"  {DIM}  └─ {log['result_summary']}{RESET}")
-
-    _print(f"\n  {'═' * 56}\n")
-
-
-# ── Commands ─────────────────────────────────────────────────────────────────
-
 async def do_status():
     from backend.database import list_investigations, init_db
     import aiosqlite
     env = _load_env()
 
-    _section("System Status")
+    _blank()
+    _label("system status")
+    _blank()
+
     docker_ok = bool(subprocess.run(
         ["docker", "images", "fossick-mcp", "-q"],
         capture_output=True, text=True).stdout.strip())
-    _print(f"  Docker image:   fossick-mcp {GREEN + '✓' + RESET if docker_ok else RED + '✗ run: docker build -t fossick-mcp -f docker/Dockerfile .' + RESET}")
+    _kv("docker", _check(docker_ok, "fossick-mcp ready",
+                         "not built · run: docker build -t fossick-mcp -f docker/Dockerfile ."))
 
     api_key = env.get("ANTHROPIC_API_KEY", "")
-    _print(f"  Anthropic API:  {GREEN + '✓ configured' + RESET if len(api_key) > 20 and api_key.startswith('sk-') else RED + '✗ add ANTHROPIC_API_KEY to .env' + RESET}")
+    _kv("anthropic", _check(len(api_key) > 20 and api_key.startswith("sk-"),
+                            "api key configured", "add ANTHROPIC_API_KEY to .env"))
 
     slack = env.get("SLACK_WEBHOOK_URL", "")
-    _print(f"  Slack webhook:  {GREEN + '✓ configured' + RESET if slack else YELLOW + '⚠ not configured (optional)' + RESET}")
+    _kv("slack", _check(bool(slack), "webhook configured", "not configured (optional)"))
 
-    case_path = Path(env.get("CASE_DATA_PATH",
-                              str(Path(__file__).parent / "case_data")))
-    images = (list(case_path.glob("*.E01")) + list(case_path.glob("*.E0[2-9]")) +
-              list(case_path.glob("*.vmem")) + list(case_path.glob("*.mem")) +
-              list(case_path.glob("*.raw")))
-    _print(f"  Case data:      {case_path} — {len(images)} image(s)")
-    for img in sorted(set(i.stem for i in images))[:5]:
-        files = list(case_path.glob(f"{img}.*"))
-        total = sum(f.stat().st_size for f in files) / (1024**2)
-        _print(f"    {DIM}└─ {img}  ({total:.0f} MB){RESET}")
+    case_path = Path(env.get("CASE_DATA_PATH", str(Path(__file__).parent / "case_data")))
+    images_e01 = sorted(set(p.stem for p in case_path.glob("*.E0*")))
+    images_mem = list(case_path.glob("*.vmem")) + list(case_path.glob("*.mem")) + list(case_path.glob("*.raw"))
+    total = len(images_e01) + len(images_mem)
+    _kv("case data", f"{DIM_W}{case_path}{RESET}  {CYAN}{total} image(s){RESET}")
+    for stem in images_e01[:5]:
+        files = list(case_path.glob(f"{stem}.*"))
+        size  = sum(f.stat().st_size for f in files) / (1024**2)
+        print(f"  {' ':14}    {DIM_W}  {stem}  {LGRAY}({size:.0f} MB){RESET}")
+    for f in images_mem[:3]:
+        size = f.stat().st_size / (1024**2)
+        print(f"  {' ':14}    {DIM_W}  {f.name}  {LGRAY}({size:.0f} MB){RESET}")
 
     try:
         from backend.config import settings
         async with aiosqlite.connect(settings.db_path) as db:
             await init_db(db)
             invs = await list_investigations(db)
-        _print(f"  Investigations: {len(invs)} in database")
+        _kv("database", f"{CYAN}{len(invs)}{RESET} {DIM_W}investigation(s){RESET}")
     except Exception:
-        _print(f"  Investigations: {DIM}no database yet{RESET}")
-    _print()
+        _kv("database", f"{DIM_W}empty{RESET}")
+    _blank()
 
 
 async def do_list():
@@ -231,25 +354,31 @@ async def do_list():
         investigations = await list_investigations(db)
 
     if not investigations:
-        _print(f"\n  {DIM}No investigations yet.{RESET}")
-        _print(f"  {DIM}Try: analyze case_data/disk.E01{RESET}\n")
+        _blank()
+        print(f"  {DIM_W}No investigations yet.  Try:{RESET}  {CYAN}analyze case_data/disk.E01{RESET}")
+        _blank()
         return
 
-    _print(f"\n  {BOLD}{'ID':10} {'Case':22} {'Status':14} {'Contradictions':16} {'Started'}{RESET}")
-    _print(f"  {'─'*10} {'─'*22} {'─'*14} {'─'*16} {'─'*18}")
+    _blank()
+    _label(f"investigations  ({len(investigations)})")
+    _blank()
+    print(f"  {DIM_W}{'ID':>10}  {'CASE':<22}  {'STATUS':<10}  {'⚡':>4}  STARTED{RESET}")
+    _hr()
     for inv in investigations:
         status = inv.get("status", "")
-        s_str  = (f"{GREEN}done{RESET}"    if status == "completed" else
-                  f"{BLUE}running{RESET}"  if status == "running"   else
-                  f"{RED}failed{RESET}")
+        s_col  = GREEN if status == "completed" else BLUE if status == "running" else RED
+        s_icon = "✓" if status == "completed" else "⟳" if status == "running" else "✗"
         contra = inv.get("contradictions_detected", 0)
-        c_str  = f"{YELLOW}⚡ {contra}{RESET}" if contra else f"{DIM}─{RESET}"
-        _print(
-            f"  {DIM}{inv['id'][:8]}…{RESET}  "
-            f"{inv['case_id']:<22}  {s_str:<24}  {c_str:<26}  "
-            f"{inv.get('started_at','')[:16]}"
+        c_str  = f"{YELLOW}{contra}{RESET}" if contra else f"{DIM_W}─{RESET}"
+        started = inv.get("started_at","")[:16]
+        print(
+            f"  {DIM_W}{inv['id'][:8]}…{RESET}  "
+            f"{WHITE}{inv['case_id']:<22}{RESET}  "
+            f"{s_col}{s_icon} {status:<8}{RESET}  "
+            f"{c_str:>10}  "
+            f"{DIM_W}{started}{RESET}"
         )
-    _print()
+    _blank()
 
 
 async def do_report(investigation_id: str):
@@ -263,8 +392,8 @@ async def do_report(investigation_id: str):
         matched = [i for i in invs if i["id"].startswith(investigation_id)
                    or i["case_id"] == investigation_id]
         if not matched:
-            _err(f"Investigation not found: {investigation_id}")
-            _print(f"  {DIM}Use 'list' to see available investigations{RESET}")
+            print(f"\n  {RED}✗{RESET}  Investigation not found: {DIM_W}{investigation_id}{RESET}")
+            print(f"  {DIM_W}Use {CYAN}list{RESET}{DIM_W} to see available investigations{RESET}\n")
             return
         report = await get_investigation(db, matched[0]["id"])
 
@@ -274,80 +403,118 @@ async def do_report(investigation_id: str):
 async def do_analyze(image_path: str, case_id: str | None, output: str):
     from backend.investigation import run_investigation
 
-    # Resolve path
     p = Path(image_path)
     if not p.exists():
         from backend.config import settings
         alt = Path(settings.case_data_path) / p.name
         if alt.exists():
             image_path = str(alt)
-            _print(f"  {DIM}Resolved: {image_path}{RESET}")
+            print(f"  {DIM_W}resolved  {LGRAY}{image_path}{RESET}")
         else:
-            _warn(f"Image not found: {image_path} — running in demo mode")
+            print(f"  {YELLOW}⚠{RESET}  Image not found — running in demo mode")
 
-    _print(f"\n  {BOLD}Starting investigation{RESET}")
-    _print(f"  Image:   {CYAN}{image_path}{RESET}")
-    _print(f"  Case ID: {case_id or 'auto-generated'}\n")
-    _print(f"  Spawning 4 agents in parallel:")
-    _print(f"  {BLUE}  [1] Timeline Agent    {DIM}Plaso — filesystem, events, LNK, USB{RESET}")
-    _print(f"  {RED}  [2] Memory Agent      {DIM}Volatility3 — processes, injections, network{RESET}")
-    _print(f"  {ORANGE}  [3] Persistence Agent {DIM}AmCache, Prefetch, Registry, Tasks{RESET}")
-    _print(f"  {PURPLE}  [4] Verifier Agent    {DIM}cross-reference, contradiction detection{RESET}")
-    _print(f"\n  {DIM}Running... (this may take several minutes for real images){RESET}\n")
+    _blank()
+    # ── Investigation header ──
+    print(f"  {BOLD}{WHITE}{'━' * 54}{RESET}")
+    print(f"  {BOLD}{WHITE}  STARTING INVESTIGATION{RESET}")
+    print(f"  {BOLD}{WHITE}{'━' * 54}{RESET}")
+    _blank()
+    _kv("image",   f"{CYAN}{image_path}{RESET}")
+    _kv("case id", f"{case_id or DIM_W + 'auto' + RESET}")
+    _blank()
 
-    start  = datetime.utcnow()
+    # ── Agent spawn list ──
+    _label("spawning agents")
+    _blank()
+    agents = [
+        (BLUE,   "1", "Timeline Agent",    "SleuthKit + fls  ·  filesystem artifacts"),
+        (RED,    "2", "Memory Agent",       "Volatility3  ·  processes & injections"),
+        (ORANGE, "3", "Persistence Agent",  "AmCache · Prefetch · Registry"),
+        (PURPLE, "4", "Verifier Agent",     "cross-reference · contradiction detection"),
+    ]
+    for color, num, name, desc in agents:
+        print(f"  {color}{BOLD}[{num}]{RESET}  {WHITE}{name:<22}{RESET}  {DIM_W}{desc}{RESET}")
+    _blank()
+
+    start = datetime.utcnow()
+
+    # Live status line while running
+    print(f"  {DIM_W}running …{RESET}", end="\r", flush=True)
     report = await run_investigation(image_path=image_path, case_id=case_id)
     elapsed = (datetime.utcnow() - start).total_seconds()
 
-    _print(f"  {GREEN}✓ Complete{RESET} in {elapsed:.1f}s  |  "
-           f"{len(report.findings)} findings  |  "
-           f"{report.contradictions_detected} contradictions")
+    print(CLEAR_LINE, end="", flush=True)
+
+    # ── Completion summary ──
+    findings     = report.findings
+    critical     = sum(1 for f in findings if f.severity == "critical")
+    high         = sum(1 for f in findings if f.severity == "high")
+    contra       = report.contradictions_detected
+
+    status_parts = [f"{GREEN}✓  done{RESET}  {DIM_W}in {elapsed:.1f}s{RESET}"]
+    if critical:  status_parts.append(f"{RED}{BOLD}{critical} critical{RESET}")
+    if high:      status_parts.append(f"{ORANGE}{high} high{RESET}")
+    if contra:    status_parts.append(f"{YELLOW}⚡ {contra} contradiction(s){RESET}")
+    if not findings: status_parts.append(f"{DIM_W}no findings{RESET}")
+
+    print(f"  {'  ·  '.join(status_parts)}")
 
     if output == "json":
-        _print(json.dumps(report.model_dump(), indent=2, default=str))
+        print(json.dumps(report.model_dump(), indent=2, default=str))
     else:
         print_report(report.model_dump())
 
 
-# ── REPL ─────────────────────────────────────────────────────────────────────
+# ── REPL ──────────────────────────────────────────────────────────────────────
 
-def parse_line(line: str) -> tuple[str, list[str]]:
-    """Parse a command line into (command, args_list)."""
-    parts = line.strip().split()
-    if not parts:
-        return "", []
-    return parts[0].lower(), parts[1:]
+HELP_TEXT = f"""
+  {BOLD}{WHITE}commands{RESET}
+
+  {CYAN}analyze{RESET} {DIM_W}<image> [--case-id <id>] [--output json|table]{RESET}
+    {DIM_W}Run autonomous DFIR investigation on a forensic image{RESET}
+    {DIM_W}· {ITALIC}analyze case_data/disk.E01 --case-id incident-001{RESET}
+
+  {CYAN}list{RESET}
+    {DIM_W}Show all past investigations{RESET}
+
+  {CYAN}report{RESET} {DIM_W}<id>{RESET}
+    {DIM_W}Display full report (supports ID prefix or case name){RESET}
+    {DIM_W}· {ITALIC}report abc12345{RESET}
+
+  {CYAN}status{RESET}
+    {DIM_W}Show system readiness — Docker, API keys, case data{RESET}
+
+  {CYAN}clear{RESET}  {DIM_W}Clear screen{RESET}
+  {CYAN}exit{RESET}   {DIM_W}Exit  (or Ctrl+C){RESET}
+"""
 
 
 def get_prompt() -> str:
-    return f"{BOLD}{BLUE}fossick{RESET} {GRAY}❯{RESET} "
+    return f"  {BOLD}{CYAN}›{RESET} "
+
+
+def parse_line(line: str) -> tuple[str, list[str]]:
+    parts = line.strip().split()
+    return (parts[0].lower(), parts[1:]) if parts else ("", [])
 
 
 async def repl():
-    print(BANNER)
-    _print(f"  Type {CYAN}help{RESET} for available commands. "
-           f"Press {BOLD}Ctrl+C{RESET} or type {CYAN}exit{RESET} to quit.\n")
+    print_banner()
 
-    # Setup readline for history and tab completion
     commands = ["analyze", "list", "report", "status", "help", "clear", "exit", "quit"]
-    def completer(text, state):
-        options = [c for c in commands if c.startswith(text)]
-        return options[state] if state < len(options) else None
-    readline.set_completer(completer)
+    readline.set_completer(lambda t, s: ([c for c in commands if c.startswith(t)] + [None])[s])
     readline.parse_and_bind("tab: complete")
 
-    history_file = Path.home() / ".fossick_history"
-    try:
-        readline.read_history_file(str(history_file))
-    except FileNotFoundError:
-        pass
+    history = Path.home() / ".fossick_history"
+    try:    readline.read_history_file(str(history))
+    except: pass
 
     try:
         while True:
             try:
                 line = input(get_prompt()).strip()
             except EOFError:
-                _print(f"\n  {DIM}Goodbye.{RESET}\n")
+                print(f"\n  {DIM_W}goodbye{RESET}\n")
                 break
 
             if not line:
@@ -356,15 +523,15 @@ async def repl():
             cmd, args = parse_line(line)
 
             if cmd in ("exit", "quit"):
-                _print(f"\n  {DIM}Goodbye.{RESET}\n")
+                print(f"\n  {DIM_W}goodbye{RESET}\n")
                 break
 
             elif cmd == "help":
-                _print(HELP_TEXT)
+                print(HELP_TEXT)
 
             elif cmd == "clear":
                 os.system("clear")
-                _print(BANNER)
+                print_banner()
 
             elif cmd == "status":
                 await do_status()
@@ -374,49 +541,38 @@ async def repl():
 
             elif cmd == "report":
                 if not args:
-                    _err("Usage: report <investigation_id>")
-                    _print(f"  {DIM}Example: report abc12345{RESET}")
+                    print(f"\n  {RED}✗{RESET}  Usage: {CYAN}report <investigation_id>{RESET}\n")
                 else:
                     await do_report(args[0])
 
             elif cmd == "analyze":
                 if not args:
-                    _err("Usage: analyze <image_path> [--case-id <id>] [--output json|table]")
-                    _print(f"  {DIM}Example: analyze case_data/disk.E01 --case-id incident-001{RESET}")
+                    print(f"\n  {RED}✗{RESET}  Usage: {CYAN}analyze <image_path> [--case-id <id>]{RESET}\n")
                     continue
-
-                # Parse inline args
                 image_path = args[0]
-                case_id    = None
-                output     = "table"
-                i = 1
+                case_id, output, i = None, "table", 1
                 while i < len(args):
                     if args[i] == "--case-id" and i + 1 < len(args):
-                        case_id = args[i + 1]; i += 2
+                        case_id = args[i+1]; i += 2
                     elif args[i] == "--output" and i + 1 < len(args):
-                        output = args[i + 1]; i += 2
+                        output = args[i+1]; i += 2
                     else:
                         i += 1
-
                 await do_analyze(image_path, case_id, output)
 
             else:
-                _err(f"Unknown command: {cmd}")
-                _print(f"  {DIM}Type 'help' to see available commands{RESET}")
+                print(f"\n  {RED}✗{RESET}  Unknown command: {DIM_W}{cmd}{RESET}  ·  type {CYAN}help{RESET}\n")
 
     except KeyboardInterrupt:
-        _print(f"\n\n  {DIM}Interrupted. Goodbye.{RESET}\n")
+        print(f"\n\n  {DIM_W}interrupted · goodbye{RESET}\n")
     finally:
-        try:
-            readline.write_history_file(str(history_file))
-        except Exception:
-            pass
+        try: readline.write_history_file(str(history))
+        except: pass
 
 
-# ── Entry point ──────────────────────────────────────────────────────────────
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
-    # If called with arguments, run single command and exit (non-interactive)
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(prog="fossick", add_help=True)
         sub = parser.add_subparsers(dest="command")
@@ -427,26 +583,17 @@ def main():
         p_a.add_argument("--output", choices=["table", "json"], default="table")
 
         sub.add_parser("list")
-
         p_r = sub.add_parser("report")
         p_r.add_argument("investigation_id")
-
         sub.add_parser("status")
 
         args = parser.parse_args()
-
-        if args.command == "analyze":
-            asyncio.run(do_analyze(args.image_path, args.case_id, args.output))
-        elif args.command == "list":
-            asyncio.run(do_list())
-        elif args.command == "report":
-            asyncio.run(do_report(args.investigation_id))
-        elif args.command == "status":
-            asyncio.run(do_status())
-        else:
-            parser.print_help()
+        if   args.command == "analyze": asyncio.run(do_analyze(args.image_path, args.case_id, args.output))
+        elif args.command == "list":    asyncio.run(do_list())
+        elif args.command == "report":  asyncio.run(do_report(args.investigation_id))
+        elif args.command == "status":  asyncio.run(do_status())
+        else: parser.print_help()
     else:
-        # No arguments — launch interactive REPL
         asyncio.run(repl())
 
 
