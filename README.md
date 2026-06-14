@@ -55,6 +55,11 @@ fossick ❯ analyze case_data/nps-2008-jean.E01 --case-id m57-demo
 
 ## Architecture
 
+![Fossick Intelligence Architecture](architecture.svg)
+
+<details>
+<summary>Text version</summary>
+
 ```
 Forensic Image (.E01 / .vmem / .mem)
          │
@@ -79,19 +84,15 @@ Forensic Image (.E01 / .vmem / .mem)
                         ▼
                Verifier Agent
         cross-reference · contradiction detection
-        confidence scoring · Slack routing
+        confidence scoring · self-correction
                         │
-              ┌─────────┴──────────┐
-              ▼                    ▼
-       Terminal REPL          Slack Channel
-       (streaming)        (real-time alerts +
-                           Approve/Dismiss)
-                                   │
-                                   ▼
-                         React Dashboard
-                    (findings · evidence integrity
-                     · Slack decision tracking)
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+  Terminal REPL    Slack Channel    React Dashboard
+  (streaming)    (Approve/Dismiss)  (findings · audit trail)
 ```
+
+</details>
 
 ---
 
@@ -307,7 +308,7 @@ fossick-intelligence/
 **Memory Agent findings:** 0 — correct, disk image provided not RAM capture
 
 **Persistence Agent findings:** 1 finding
-- `WINWORD.EXE` in Windows Startup folder — HIGH confidence, genuine forensic indicator
+- `WINWORD.EXE` in Windows Startup folder — single-source finding (disk only); no timeline write event or memory process corroboration because no RAM capture was provided. Verifier correctly flags this as needing analyst follow-up.
 
 **Verifier contradictions detected:** 3
 - Flash installer high severity unsupported by memory/persistence evidence

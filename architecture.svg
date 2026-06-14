@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" font-family="'JetBrains Mono', 'Courier New', monospace">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="620" fill="#0f172a" rx="12"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" fill="#f8fafc" font-size="15" font-weight="bold" letter-spacing="2">FOSSICK INTELLIGENCE — ARCHITECTURE</text>
+  <text x="450" y="56" text-anchor="middle" fill="#64748b" font-size="10">Autonomous DFIR · Custom MCP Server · Evidence Integrity by Design</text>
+
+  <!-- ── Forensic Image (input) ── -->
+  <rect x="340" y="72" width="220" height="44" rx="6" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+  <text x="450" y="90" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="bold">FORENSIC IMAGE</text>
+  <text x="450" y="104" text-anchor="middle" fill="#64748b" font-size="9">*.E01 / *.vmem / *.mem  ·  read-only</text>
+
+  <!-- Down arrow to MCP Server -->
+  <line x1="450" y1="116" x2="450" y2="148" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ── MCP Server (Docker) ── -->
+  <rect x="160" y="150" width="580" height="130" rx="8" fill="#0f2342" stroke="#1d4ed8" stroke-width="2"/>
+  <rect x="160" y="150" width="580" height="24" rx="8" fill="#1d4ed8"/>
+  <text x="450" y="166" text-anchor="middle" fill="#f8fafc" font-size="11" font-weight="bold">CUSTOM MCP SERVER  ·  Docker  ·  :ro mount  ·  --privileged (FUSE)</text>
+
+  <!-- MCP tools row -->
+  <rect x="180" y="186" width="125" height="40" rx="5" fill="#172554" stroke="#3b82f6" stroke-width="1"/>
+  <text x="242" y="202" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="bold">get_timeline()</text>
+  <text x="242" y="215" text-anchor="middle" fill="#475569" font-size="8">ewfmount + fls + mactime</text>
+
+  <rect x="318" y="186" width="125" height="40" rx="5" fill="#172554" stroke="#3b82f6" stroke-width="1"/>
+  <text x="380" y="202" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="bold">analyze_memory()</text>
+  <text x="380" y="215" text-anchor="middle" fill="#475569" font-size="8">Volatility3 plugins</text>
+
+  <rect x="456" y="186" width="125" height="40" rx="5" fill="#172554" stroke="#3b82f6" stroke-width="1"/>
+  <text x="518" y="202" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="bold">get_persistence()</text>
+  <text x="518" y="215" text-anchor="middle" fill="#475569" font-size="8">icat + regipy + Startup</text>
+
+  <rect x="594" y="186" width="130" height="40" rx="5" fill="#172554" stroke="#3b82f6" stroke-width="1"/>
+  <text x="659" y="202" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="bold">verify_file_hash()</text>
+  <text x="659" y="215" text-anchor="middle" fill="#475569" font-size="8">SHA-256 · EvidenceContext</text>
+
+  <!-- Trust boundary label -->
+  <text x="450" y="268" text-anchor="middle" fill="#1d4ed8" font-size="9">▲ ARCHITECTURAL BOUNDARY — agents cannot run arbitrary commands · all tools return structured JSON · max 50 findings/call</text>
+
+  <!-- ── Agents row ── -->
+  <!-- Timeline Agent -->
+  <rect x="52" y="316" width="140" height="72" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="122" y="334" text-anchor="middle" fill="#3b82f6" font-size="10" font-weight="bold">[1] Timeline Agent</text>
+  <text x="122" y="350" text-anchor="middle" fill="#64748b" font-size="8">SleuthKit fls</text>
+  <text x="122" y="363" text-anchor="middle" fill="#64748b" font-size="8">filesystem artifacts</text>
+  <text x="122" y="376" text-anchor="middle" fill="#64748b" font-size="8">Claude Haiku</text>
+
+  <!-- Memory Agent -->
+  <rect x="210" y="316" width="140" height="72" rx="6" fill="#1e293b" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="280" y="334" text-anchor="middle" fill="#ef4444" font-size="10" font-weight="bold">[2] Memory Agent</text>
+  <text x="280" y="350" text-anchor="middle" fill="#64748b" font-size="8">Volatility3</text>
+  <text x="280" y="363" text-anchor="middle" fill="#64748b" font-size="8">processes · network</text>
+  <text x="280" y="376" text-anchor="middle" fill="#64748b" font-size="8">Claude Haiku</text>
+
+  <!-- Persistence Agent -->
+  <rect x="368" y="316" width="140" height="72" rx="6" fill="#1e293b" stroke="#f97316" stroke-width="1.5"/>
+  <text x="438" y="334" text-anchor="middle" fill="#f97316" font-size="10" font-weight="bold">[3] Persistence Agent</text>
+  <text x="438" y="350" text-anchor="middle" fill="#64748b" font-size="8">regipy + Startup scan</text>
+  <text x="438" y="363" text-anchor="middle" fill="#64748b" font-size="8">Run/RunOnce keys</text>
+  <text x="438" y="376" text-anchor="middle" fill="#64748b" font-size="8">Claude Haiku</text>
+
+  <!-- Verifier Agent -->
+  <rect x="526" y="316" width="140" height="72" rx="6" fill="#1e293b" stroke="#a855f7" stroke-width="1.5"/>
+  <text x="596" y="334" text-anchor="middle" fill="#a855f7" font-size="10" font-weight="bold">[4] Verifier Agent</text>
+  <text x="596" y="350" text-anchor="middle" fill="#64748b" font-size="8">cross-reference · contradictions</text>
+  <text x="596" y="363" text-anchor="middle" fill="#64748b" font-size="8">confidence scoring</text>
+  <text x="596" y="376" text-anchor="middle" fill="#64748b" font-size="8">Claude Sonnet</text>
+
+  <!-- Orchestrator box -->
+  <rect x="694" y="316" width="154" height="72" rx="6" fill="#1e293b" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="771" y="334" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="bold">Orchestrator</text>
+  <text x="771" y="350" text-anchor="middle" fill="#64748b" font-size="8">sequential execution</text>
+  <text x="771" y="363" text-anchor="middle" fill="#64748b" font-size="8">self-correction logic</text>
+  <text x="771" y="376" text-anchor="middle" fill="#64748b" font-size="8">agent message log</text>
+
+  <!-- Arrows: MCP → agents -->
+  <line x1="242" y1="280" x2="160" y2="316" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-blue)"/>
+  <line x1="380" y1="280" x2="318" y2="316" stroke="#ef4444" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow-red)"/>
+  <line x1="518" y1="280" x2="475" y2="316" stroke="#f97316" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="475" y1="316" x2="475" y2="316" stroke="#f97316" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- Arrows: agents → verifier -->
+  <line x1="192" y1="388" x2="526" y2="388" stroke="#a855f7" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <line x1="350" y1="388" x2="526" y2="388" stroke="#a855f7" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="508" y1="388" x2="526" y2="388" stroke="#a855f7" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <!-- Orchestrator arrow -->
+  <line x1="666" y1="352" x2="694" y2="352" stroke="#22c55e" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+  <!-- ── Output row ── -->
+  <!-- Terminal REPL -->
+  <rect x="52" y="430" width="150" height="56" rx="6" fill="#1e293b" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="127" y="450" text-anchor="middle" fill="#22c55e" font-size="10" font-weight="bold">Terminal REPL</text>
+  <text x="127" y="466" text-anchor="middle" fill="#64748b" font-size="8">streaming findings</text>
+  <text x="127" y="479" text-anchor="middle" fill="#64748b" font-size="8">fossick logs &lt;id&gt;</text>
+
+  <!-- Slack -->
+  <rect x="222" y="430" width="150" height="56" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="297" y="450" text-anchor="middle" fill="#f59e0b" font-size="10" font-weight="bold">Slack</text>
+  <text x="297" y="466" text-anchor="middle" fill="#64748b" font-size="8">real-time cards</text>
+  <text x="297" y="479" text-anchor="middle" fill="#64748b" font-size="8">Approve / Dismiss</text>
+
+  <!-- React Dashboard -->
+  <rect x="392" y="430" width="150" height="56" rx="6" fill="#1e293b" stroke="#06b6d4" stroke-width="1.5"/>
+  <text x="467" y="450" text-anchor="middle" fill="#06b6d4" font-size="10" font-weight="bold">React Dashboard</text>
+  <text x="467" y="466" text-anchor="middle" fill="#64748b" font-size="8">findings · evidence integrity</text>
+  <text x="467" y="479" text-anchor="middle" fill="#64748b" font-size="8">Slack decision tracking</text>
+
+  <!-- SQLite DB -->
+  <rect x="562" y="430" width="150" height="56" rx="6" fill="#1e293b" stroke="#64748b" stroke-width="1.5"/>
+  <text x="637" y="450" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="bold">SQLite</text>
+  <text x="637" y="466" text-anchor="middle" fill="#64748b" font-size="8">execution log · findings</text>
+  <text x="637" y="479" text-anchor="middle" fill="#64748b" font-size="8">agent messages · SHA-256</text>
+
+  <!-- Arrows: verifier → outputs -->
+  <line x1="596" y1="388" x2="127" y2="430" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <line x1="596" y1="388" x2="297" y2="430" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <line x1="596" y1="388" x2="467" y2="430" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <line x1="596" y1="388" x2="637" y2="430" stroke="#64748b" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+
+  <!-- ── Evidence Integrity legend ── -->
+  <rect x="52" y="510" width="796" height="88" rx="6" fill="#0c1a0c" stroke="#16a34a" stroke-width="1"/>
+  <text x="450" y="528" text-anchor="middle" fill="#16a34a" font-size="10" font-weight="bold">EVIDENCE INTEGRITY — ARCHITECTURAL ENFORCEMENT</text>
+  <text x="80" y="548" fill="#64748b" font-size="9">SHA-256 hashed before + after every MCP tool call via EvidenceContext</text>
+  <text x="80" y="562" fill="#64748b" font-size="9">EvidenceSpoliationError raised if hash changes — investigation halts immediately</text>
+  <text x="80" y="576" fill="#64748b" font-size="9">Docker :ro mount — image physically cannot be modified by any agent or tool</text>
+  <text x="80" y="590" fill="#64748b" font-size="9">All tool calls return structured JSON — raw shell output never reaches the LLM</text>
+</svg>
