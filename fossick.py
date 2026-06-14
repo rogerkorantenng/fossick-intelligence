@@ -13,7 +13,7 @@ import subprocess
 import time
 import threading
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 sys.path.insert(0, str(Path(__file__).parent))
 os.environ.setdefault("ANTHROPIC_API_KEY", "")
@@ -433,7 +433,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     _kv("case id", f"{case_id or DIM_W + 'auto-generated' + RESET}")
     _blank()
 
-    start = datetime.utcnow()
+    start = datetime.now(datetime.UTC)
     investigation_id = str(uuid.uuid4())
     case_id = case_id or f"case_{investigation_id[:8]}"
 
@@ -527,7 +527,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     report = InvestigationReport(
         id=investigation_id, case_id=case_id, image_path=image_path,
         image_sha256=image_sha256, status="completed",
-        started_at=start, completed_at=datetime.utcnow(),
+        started_at=start, completed_at=datetime.now(datetime.UTC),
         findings=all_final, contradictions_detected=len(contradictions),
         contradictions_resolved=len([c for c in contradictions if c.confidence != "LOW"]),
         execution_log=all_logs, evidence_integrity_verified=evidence_ok,
@@ -547,7 +547,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     await send_slack(format_completion_card(case_id, len(all_final), len(contradictions), evidence_ok))
 
     # ── Summary ─────────────────────────────────────────────────────────────────
-    elapsed = (datetime.utcnow() - start).total_seconds()
+    elapsed = (datetime.now(datetime.UTC) - start).total_seconds()
     _blank()
     print(f"  {DIM_W}{'━' * 54}{RESET}")
     critical = sum(1 for f in all_final if f.severity == "critical" and not f.contradiction)

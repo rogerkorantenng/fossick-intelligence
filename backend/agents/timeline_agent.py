@@ -22,7 +22,7 @@ class TimelineAgent(AgentBase):
         events = raw.get("data", {}).get("events", []) if not raw.get("error") else []
         log = ToolCallLog(
             id=call_id, tool_name="get_timeline", agent="TimelineAgent",
-            called_at=datetime.utcnow(), duration_ms=raw.get("duration_ms", 0),
+            called_at=datetime.now(UTC), duration_ms=raw.get("duration_ms", 0),
             params={"image_path": image_path},
             result_summary=f"{len(events)} timeline events",
             image_sha256=raw.get("image_sha256", ""),

@@ -1,1 +1,1 @@
-{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/components/AgentLog.tsx","./src/components/EvidenceBadge.tsx","./src/components/FindingCard.tsx","./src/components/InvestigationList.tsx","./src/components/ReportView.tsx","./src/components/TimelinePanel.tsx"],"version":"5.9.3"}
+{"root":["./src/App.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/components/InvestigationList.tsx","./src/components/ReportView.tsx"],"version":"5.9.3"}

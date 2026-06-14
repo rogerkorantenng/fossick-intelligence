@@ -18,7 +18,7 @@ from mcp_server.tools.integrity import compute_sha256
 async def run_investigation(image_path: str, case_id: str | None = None) -> InvestigationReport:
     investigation_id = str(uuid.uuid4())
     case_id = case_id or f"case_{investigation_id[:8]}"
-    started_at = datetime.utcnow()
+    started_at = datetime.now(UTC)
 
     image_sha256 = ""
     if Path(image_path).exists():
@@ -99,7 +99,7 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
     report.execution_log = all_logs
     report.evidence_integrity_verified = evidence_ok
     report.status = "completed"
-    report.completed_at = datetime.utcnow()
+    report.completed_at = datetime.now(UTC)
 
     async with aiosqlite.connect(settings.db_path) as db:
         await save_investigation(db, report)
