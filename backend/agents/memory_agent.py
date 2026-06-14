@@ -1,4 +1,5 @@
 import json
+from backend.agents.base import AgentBase
 import uuid
 import anthropic
 from datetime import datetime
@@ -6,10 +7,10 @@ from backend.models import Finding, ToolCallLog
 from backend.config import settings
 
 
-class MemoryAgent:
+class MemoryAgent(AgentBase):
     def __init__(self, docker_client, anthropic_key: str | None = None):
         self.docker_client = docker_client
-        self.client = anthropic.AsyncAnthropic(api_key=anthropic_key or settings.anthropic_api_key)
+        self._anthropic_key = anthropic_key
 
     async def run(self, image_path: str) -> tuple[list[Finding], list[ToolCallLog]]:
         raw = await self.docker_client.call_tool("analyze_memory", {
@@ -40,7 +41,7 @@ Injections detected: {data.get('injections_detected', 0)}
 Return JSON array only:
 [{{"severity":"critical|high|medium|low","title":"...","description":"...","pid":null}}]"""
 
-        message = await self.client.messages.create(
+        message = await self._get_client().messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )

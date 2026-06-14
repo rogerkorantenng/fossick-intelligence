@@ -1,4 +1,5 @@
 import json
+from backend.agents.base import AgentBase
 import uuid
 import anthropic
 from backend.models import Finding, ToolCallLog
@@ -25,9 +26,9 @@ def detect_contradictions(
     return contradictions
 
 
-class VerifierAgent:
+class VerifierAgent(AgentBase):
     def __init__(self, anthropic_key: str | None = None):
-        self.client = anthropic.AsyncAnthropic(api_key=anthropic_key or settings.anthropic_api_key)
+        self._anthropic_key = anthropic_key
 
     async def run(
         self,
@@ -62,7 +63,7 @@ Identify any additional contradictions.
 Return JSON:
 {{"verified_findings":[{{"id":"original_id","confidence":"HIGH|MEDIUM|LOW","corroborating_sources":["timeline","memory","persistence"]}}],"new_contradictions":[{{"title":"...","description":"...","severity":"high|medium"}}]}}"""
 
-        message = await self.client.messages.create(
+        message = await self._get_client().messages.create(
             model="claude-sonnet-4-6", max_tokens=2048,
             messages=[{"role": "user", "content": synthesis_prompt}],
         )
