@@ -401,11 +401,22 @@ async def do_report(investigation_id: str):
 
 
 async def do_analyze(image_path: str, case_id: str | None, output: str):
+    from backend.docker_client import get_docker_client
+    from backend.agents.timeline_agent import TimelineAgent
+    from backend.agents.memory_agent import MemoryAgent
+    from backend.agents.persistence_agent import PersistenceAgent
+    from backend.agents.verifier_agent import VerifierAgent
     from backend.investigation import run_investigation
+    from backend.config import settings
+    import aiosqlite
+    from backend.database import init_db, save_investigation
+    from backend.models import InvestigationReport
+    from backend.slack_webhook import send_slack, format_finding_card, format_contradiction_card, format_completion_card
+    from mcp_server.tools.integrity import compute_sha256
+    import uuid
 
     p = Path(image_path)
     if not p.exists():
-        from backend.config import settings
         alt = Path(settings.case_data_path) / p.name
         if alt.exists():
             image_path = str(alt)
@@ -414,55 +425,144 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
             print(f"  {YELLOW}⚠{RESET}  Image not found — running in demo mode")
 
     _blank()
-    # ── Investigation header ──
     print(f"  {BOLD}{WHITE}{'━' * 54}{RESET}")
-    print(f"  {BOLD}{WHITE}  STARTING INVESTIGATION{RESET}")
+    print(f"  {BOLD}{WHITE}  INVESTIGATION  ·  {case_id or 'auto'}{RESET}")
     print(f"  {BOLD}{WHITE}{'━' * 54}{RESET}")
     _blank()
     _kv("image",   f"{CYAN}{image_path}{RESET}")
-    _kv("case id", f"{case_id or DIM_W + 'auto' + RESET}")
-    _blank()
-
-    # ── Agent spawn list ──
-    _label("spawning agents")
-    _blank()
-    agents = [
-        (BLUE,   "1", "Timeline Agent",    "SleuthKit + fls  ·  filesystem artifacts"),
-        (RED,    "2", "Memory Agent",       "Volatility3  ·  processes & injections"),
-        (ORANGE, "3", "Persistence Agent",  "AmCache · Prefetch · Registry"),
-        (PURPLE, "4", "Verifier Agent",     "cross-reference · contradiction detection"),
-    ]
-    for color, num, name, desc in agents:
-        print(f"  {color}{BOLD}[{num}]{RESET}  {WHITE}{name:<22}{RESET}  {DIM_W}{desc}{RESET}")
+    _kv("case id", f"{case_id or DIM_W + 'auto-generated' + RESET}")
     _blank()
 
     start = datetime.utcnow()
+    investigation_id = str(uuid.uuid4())
+    case_id = case_id or f"case_{investigation_id[:8]}"
 
-    # Live status line while running
-    print(f"  {DIM_W}running …{RESET}", end="\r", flush=True)
-    report = await run_investigation(image_path=image_path, case_id=case_id)
+    image_sha256 = ""
+    if Path(image_path).exists():
+        print(f"  {DIM_W}computing sha-256…{RESET}", end="\r", flush=True)
+        image_sha256 = compute_sha256(image_path)
+        print(CLEAR_LINE, end="", flush=True)
+        _kv("sha-256", f"{DIM_W}{image_sha256[:48]}…{RESET}")
+        _blank()
+
+    docker_client = get_docker_client()
+
+    def _agent_header(color: str, num: str, name: str):
+        print(f"  {color}{BOLD}[{num}]{RESET}  {WHITE}{BOLD}{name}{RESET}  {DIM_W}running…{RESET}", end="\r", flush=True)
+
+    def _agent_done(color: str, num: str, name: str, n: int, ms: int):
+        dur = f"{ms/1000:.1f}s" if ms > 1000 else f"{ms}ms"
+        count_str = f"{CYAN}{n} finding(s){RESET}" if n else f"{DIM_W}no findings{RESET}"
+        print(CLEAR_LINE, end="", flush=True)
+        print(f"  {color}{BOLD}[{num}]{RESET}  {WHITE}{BOLD}{name:<20}{RESET}  {count_str}  {DIM_W}{dur}{RESET}")
+
+    def _print_finding_live(f, idx: int):
+        color = SEV_COLOR.get(f.severity, GRAY)
+        is_contra = f.contradiction
+        label = f"{YELLOW}⚡ CONTRADICTION{RESET}" if is_contra else f"{color}{f.severity.upper()}{RESET}"
+        print(f"\n  {DIM_W}  ├─{RESET} {label}  {BOLD}{WHITE}{f.title}{RESET}")
+        desc = f.description[:120] + ("…" if len(f.description) > 120 else "")
+        print(f"  {DIM_W}  │   {LGRAY}{desc}{RESET}")
+
+    # ── Timeline Agent ──────────────────────────────────────────────────────────
+    _agent_header(BLUE, "1", "Timeline Agent")
+    try:
+        tl_findings, tl_logs = await TimelineAgent(docker_client).run(image_path)
+    except Exception as e:
+        tl_findings, tl_logs = [], []
+    ms = tl_logs[0].duration_ms if tl_logs else 0
+    _agent_done(BLUE, "1", "Timeline Agent", len(tl_findings), ms)
+    for f in tl_findings:
+        _print_finding_live(f, 0)
+
+    # ── Memory Agent ────────────────────────────────────────────────────────────
+    _blank() if tl_findings else None
+    _agent_header(RED, "2", "Memory Agent")
+    try:
+        mem_findings, mem_logs = await MemoryAgent(docker_client).run(image_path)
+    except Exception as e:
+        mem_findings, mem_logs = [], []
+    ms = mem_logs[0].duration_ms if mem_logs else 0
+    _agent_done(RED, "2", "Memory Agent", len(mem_findings), ms)
+    for f in mem_findings:
+        _print_finding_live(f, 0)
+
+    # ── Persistence Agent ───────────────────────────────────────────────────────
+    _blank() if mem_findings else None
+    _agent_header(ORANGE, "3", "Persistence Agent")
+    try:
+        per_findings, per_logs = await PersistenceAgent(docker_client).run(image_path)
+    except Exception as e:
+        per_findings, per_logs = [], []
+    ms = per_logs[0].duration_ms if per_logs else 0
+    _agent_done(ORANGE, "3", "Persistence Agent", len(per_findings), ms)
+    for f in per_findings:
+        _print_finding_live(f, 0)
+
+    # ── Verifier Agent ──────────────────────────────────────────────────────────
+    _blank()
+    _agent_header(PURPLE, "4", "Verifier Agent")
+    all_logs = list(tl_logs) + list(mem_logs) + list(per_logs)
+    try:
+        verified, contradictions, ver_logs = await VerifierAgent().run(
+            tl_findings, mem_findings, per_findings, all_logs
+        )
+    except Exception:
+        verified, contradictions, ver_logs = tl_findings + mem_findings + per_findings, [], []
+    all_logs.extend(ver_logs)
+    _agent_done(PURPLE, "4", "Verifier Agent", len(contradictions), 0)
+    if contradictions:
+        for f in contradictions:
+            _print_finding_live(f, 0)
+
+    # ── Save to DB and send Slack ───────────────────────────────────────────────
+    all_final = verified + contradictions
+    evidence_ok = True
+    if image_sha256 and image_sha256 != "demo_mode" and Path(image_path).exists():
+        is_multi = Path(image_path).suffix.upper() == ".E01" and Path(image_path.replace(".E01", ".E02")).exists()
+        if not is_multi:
+            final_hash = compute_sha256(image_path)
+            evidence_ok = final_hash == image_sha256
+
+    report = InvestigationReport(
+        id=investigation_id, case_id=case_id, image_path=image_path,
+        image_sha256=image_sha256, status="completed",
+        started_at=start, completed_at=datetime.utcnow(),
+        findings=all_final, contradictions_detected=len(contradictions),
+        contradictions_resolved=len([c for c in contradictions if c.confidence != "LOW"]),
+        execution_log=all_logs, evidence_integrity_verified=evidence_ok,
+    )
+    async with aiosqlite.connect(settings.db_path) as db:
+        await init_db(db)
+        await save_investigation(db, report)
+
+    for f in all_final:
+        if f.contradiction:
+            await send_slack(format_contradiction_card(f, case_id))
+        elif f.confidence == "LOW":
+            f.slack_status = "pending_review"
+            await send_slack(format_finding_card(f, case_id))
+        else:
+            f.slack_status = "auto_confirmed"
+    await send_slack(format_completion_card(case_id, len(all_final), len(contradictions), evidence_ok))
+
+    # ── Summary ─────────────────────────────────────────────────────────────────
     elapsed = (datetime.utcnow() - start).total_seconds()
-
-    print(CLEAR_LINE, end="", flush=True)
-
-    # ── Completion summary ──
-    findings     = report.findings
-    critical     = sum(1 for f in findings if f.severity == "critical")
-    high         = sum(1 for f in findings if f.severity == "high")
-    contra       = report.contradictions_detected
-
-    status_parts = [f"{GREEN}✓  done{RESET}  {DIM_W}in {elapsed:.1f}s{RESET}"]
-    if critical:  status_parts.append(f"{RED}{BOLD}{critical} critical{RESET}")
-    if high:      status_parts.append(f"{ORANGE}{high} high{RESET}")
-    if contra:    status_parts.append(f"{YELLOW}⚡ {contra} contradiction(s){RESET}")
-    if not findings: status_parts.append(f"{DIM_W}no findings{RESET}")
-
-    print(f"  {'  ·  '.join(status_parts)}")
+    _blank()
+    print(f"  {DIM_W}{'━' * 54}{RESET}")
+    critical = sum(1 for f in all_final if f.severity == "critical" and not f.contradiction)
+    high     = sum(1 for f in all_final if f.severity == "high" and not f.contradiction)
+    parts    = [f"{GREEN}✓  complete{RESET}  {DIM_W}{elapsed:.1f}s{RESET}"]
+    if critical: parts.append(f"{RED}{BOLD}{critical} critical{RESET}")
+    if high:     parts.append(f"{ORANGE}{high} high{RESET}")
+    if contradictions: parts.append(f"{YELLOW}⚡ {len(contradictions)} contradiction(s){RESET}")
+    if not all_final: parts.append(f"{DIM_W}no findings{RESET}")
+    parts.append(f"{DIM_W}dashboard: http://localhost:5173{RESET}")
+    print(f"  {'  ·  '.join(parts)}")
+    _blank()
 
     if output == "json":
         print(json.dumps(report.model_dump(), indent=2, default=str))
-    else:
-        print_report(report.model_dump())
 
 
 # ── REPL ──────────────────────────────────────────────────────────────────────
