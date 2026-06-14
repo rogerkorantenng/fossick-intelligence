@@ -739,7 +739,8 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     if contradictions: parts.append(f"{YELLOW}⚡ {len(contradictions)} contradiction(s){RESET}")
     if self_corrections: parts.append(f"{CYAN}⟳ {self_corrections} self-correction(s){RESET}")
     if not all_final: parts.append(f"{DIM_W}no findings{RESET}")
-    parts.append(f"{DIM_W}dashboard: http://localhost:5173{RESET}")
+    dashboard_url = os.environ.get("DASHBOARD_URL", "http://localhost:5173")
+    parts.append(f"{DIM_W}dashboard: {dashboard_url}{RESET}")
     print(f"  {'  ·  '.join(parts)}")
     _blank()
 
