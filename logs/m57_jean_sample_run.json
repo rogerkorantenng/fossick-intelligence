@@ -1,23 +1,114 @@
 {
-  "investigation_id": "8d70b401-6ed0-414d-8346-bc0040794532",
+  "investigation_id": "917a4d34-2f10-428e-a11e-09c885c30262",
   "case_id": "m57-jean",
   "image_path": "case_data/nps-2008-jean.E01",
   "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
-  "started_at": "2026-06-14T21:00:38.493284+00:00",
-  "completed_at": "2026-06-14T21:01:16.784370+00:00",
-  "duration_seconds": 38.3,
+  "started_at": "2026-06-14T21:22:53.503254+00:00",
+  "completed_at": "2026-06-14T21:23:34.329000+00:00",
+  "duration_seconds": 40.8,
   "evidence_integrity_verified": true,
   "status": "completed",
   "contradictions_detected": 3,
   "self_corrections_applied": 0,
 
+  "agent_messages": [
+    {
+      "from_agent": "Orchestrator",
+      "to_agent": "TimelineAgent",
+      "message_type": "dispatch",
+      "timestamp": "2026-06-14T21:22:54.492001+00:00",
+      "content": "Analyze filesystem timeline for case_data/nps-2008-jean.E01. Artifact types: fs, evt, lnk, usb, browser.",
+      "finding_count": 0,
+      "tool_call_id": null,
+      "self_correction": false,
+      "correction_note": null
+    },
+    {
+      "from_agent": "TimelineAgent",
+      "to_agent": "Orchestrator",
+      "message_type": "findings",
+      "timestamp": "2026-06-14T21:23:02.929476+00:00",
+      "content": "Returned 4 finding(s) from filesystem timeline analysis.",
+      "finding_count": 4,
+      "tool_call_id": "tl_c92187",
+      "self_correction": false,
+      "correction_note": null
+    },
+    {
+      "from_agent": "Orchestrator",
+      "to_agent": "MemoryAgent",
+      "message_type": "dispatch",
+      "timestamp": "2026-06-14T21:23:02.929601+00:00",
+      "content": "Analyze memory artifacts in case_data/nps-2008-jean.E01. Plugins: pslist, netscan, malfind, cmdline.",
+      "finding_count": 0,
+      "tool_call_id": null,
+      "self_correction": false,
+      "correction_note": null
+    },
+    {
+      "from_agent": "MemoryAgent",
+      "to_agent": "Orchestrator",
+      "message_type": "findings",
+      "timestamp": "2026-06-14T21:23:06.634712+00:00",
+      "content": "Returned 0 finding(s). Disk image provided — Volatility3 requires RAM capture. Honest zero, no findings fabricated.",
+      "finding_count": 0,
+      "tool_call_id": "mem_141db7",
+      "self_correction": false,
+      "correction_note": null
+    },
+    {
+      "from_agent": "Orchestrator",
+      "to_agent": "PersistenceAgent",
+      "message_type": "dispatch",
+      "timestamp": "2026-06-14T21:23:06.634794+00:00",
+      "content": "Analyze persistence mechanisms in case_data/nps-2008-jean.E01. Check registry Run/RunOnce keys and Windows Startup folders.",
+      "finding_count": 0,
+      "tool_call_id": null,
+      "self_correction": false,
+      "correction_note": null
+    },
+    {
+      "from_agent": "PersistenceAgent",
+      "to_agent": "Orchestrator",
+      "message_type": "findings",
+      "timestamp": "2026-06-14T21:23:15.481274+00:00",
+      "content": "Returned 1 persistence indicator(s).",
+      "finding_count": 1,
+      "tool_call_id": "per_ae961a",
+      "self_correction": false,
+      "correction_note": null
+    },
+    {
+      "from_agent": "Orchestrator",
+      "to_agent": "VerifierAgent",
+      "message_type": "dispatch",
+      "timestamp": "2026-06-14T21:23:15.481353+00:00",
+      "content": "Cross-reference all findings. Timeline: 4, Memory: 0, Persistence: 1. Assign confidence. Identify contradictions.",
+      "finding_count": 0,
+      "tool_call_id": null,
+      "self_correction": false,
+      "correction_note": null
+    },
+    {
+      "from_agent": "VerifierAgent",
+      "to_agent": "Orchestrator",
+      "message_type": "findings",
+      "timestamp": "2026-06-14T21:23:34.329009+00:00",
+      "content": "Verification complete. 5 verified, 3 contradiction(s). 0 classification correction(s) applied.",
+      "finding_count": 8,
+      "tool_call_id": "ver_2f8483",
+      "self_correction": false,
+      "correction_note": null
+    }
+  ],
+
   "tool_execution_log": [
     {
-      "id": "tl_d29c15",
+      "id": "tl_c92187",
       "tool_name": "get_timeline",
       "agent": "TimelineAgent",
-      "called_at": "2026-06-14T21:00:43.120886",
-      "duration_ms": 1848,
+      "called_at": "2026-06-14T21:22:58.785604",
+      "duration_ms": 1990,
       "params": {"image_path": "case_data/nps-2008-jean.E01"},
       "result_summary": "7 timeline events",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
@@ -25,11 +116,11 @@
       "spoliation_detected": false
     },
     {
-      "id": "mem_45f1cb",
+      "id": "mem_141db7",
       "tool_name": "analyze_memory",
       "agent": "MemoryAgent",
-      "called_at": "2026-06-14T21:00:50.483010",
-      "duration_ms": 1816,
+      "called_at": "2026-06-14T21:23:06.634646",
+      "duration_ms": 1847,
       "params": {"image_path": "case_data/nps-2008-jean.E01"},
       "result_summary": "0 processes, 0 injections — disk image provided, not RAM capture",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
@@ -37,11 +128,11 @@
       "spoliation_detected": false
     },
     {
-      "id": "per_88b254",
+      "id": "per_ae961a",
       "tool_name": "get_persistence",
       "agent": "PersistenceAgent",
-      "called_at": "2026-06-14T21:00:55.010156",
-      "duration_ms": 2689,
+      "called_at": "2026-06-14T21:23:11.389044",
+      "duration_ms": 2918,
       "params": {"image_path": "case_data/nps-2008-jean.E01"},
       "result_summary": "1 persistence indicator",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
@@ -49,11 +140,11 @@
       "spoliation_detected": false
     },
     {
-      "id": "ver_bbd001",
+      "id": "ver_2f8483",
       "tool_name": "verifier_synthesis",
       "agent": "VerifierAgent",
-      "called_at": "2026-06-14T21:01:16.784025",
-      "duration_ms": 21774,
+      "called_at": "2026-06-14T21:23:34.328907",
+      "duration_ms": 18848,
       "params": {"finding_count": 5},
       "result_summary": "Verified 5 findings, 3 contradictions detected",
       "image_sha256": "",
@@ -70,7 +161,7 @@
       "description": "Detection of install_flash_player.exe - commonly used as a malware delivery vector and trojan dropper",
       "confidence": "LOW",
       "sources": ["timeline"],
-      "tool_call_ids": ["tl_d29c15"],
+      "tool_call_ids": ["tl_c92187"],
       "contradiction": false
     },
     {
@@ -80,7 +171,7 @@
       "description": "Detection of multiple Windows Installer bootstrap executables (instmsia.exe, instmsiw.exe, InstMsi.exe) - potentially indicative of malware installation or system compromise",
       "confidence": "LOW",
       "sources": ["timeline"],
-      "tool_call_ids": ["tl_d29c15"],
+      "tool_call_ids": ["tl_c92187"],
       "contradiction": false
     },
     {
@@ -90,7 +181,7 @@
       "description": "Detection of AppCurrentItemPlaying.sol - artifact associated with media player activity, potentially indicative of PUA or adware",
       "confidence": "LOW",
       "sources": ["timeline"],
-      "tool_call_ids": ["tl_d29c15"],
+      "tool_call_ids": ["tl_c92187"],
       "contradiction": false
     },
     {
@@ -100,7 +191,7 @@
       "description": "Detection of Temp directory flagged as suspicious - potential staging location for malicious files or artifacts",
       "confidence": "LOW",
       "sources": ["timeline"],
-      "tool_call_ids": ["tl_d29c15"],
+      "tool_call_ids": ["tl_c92187"],
       "contradiction": false
     },
     {
@@ -110,7 +201,7 @@
       "description": "WINWORD.EXE (Microsoft Word executable) placed directly in the Startup folder is highly unusual and suspicious. Legitimate Microsoft Office installations do not use Startup folders for application launch. This indicates potential abuse of a known executable name for persistence, possibly through: (1) a trojanized/hijacked winword.exe binary, (2) DLL injection targets, or (3) living-off-the-land technique leveraging legitimate application trust.",
       "confidence": "LOW",
       "sources": ["persistence"],
-      "tool_call_ids": ["per_88b254"],
+      "tool_call_ids": ["per_ae961a"],
       "contradiction": false
     },
     {
@@ -120,7 +211,7 @@
       "description": "The Persistence Agent identified WINWORD.EXE in the Startup folder as a high-severity suspicious persistence mechanism. However, neither the Timeline Agent nor the Memory Agent surfaced any corroborating artifacts — no corresponding file creation events, process execution records, registry modifications, or in-memory indicators referencing WINWORD.EXE or Startup folder activity.",
       "confidence": "LOW",
       "sources": ["verifier"],
-      "tool_call_ids": ["ver_bbd001"],
+      "tool_call_ids": ["ver_2f8483"],
       "contradiction": true
     },
     {
@@ -130,7 +221,7 @@
       "description": "install_flash_player.exe is flagged as CRITICAL by the Timeline Agent, yet no Memory Agent artifacts and no Persistence Agent findings are associated with it. A critical-severity dropper would typically leave persistence and/or in-memory traces. The lack of cross-source corroboration suggests the executable was never executed (merely present on disk) or the critical severity designation is overstated.",
       "confidence": "LOW",
       "sources": ["verifier"],
-      "tool_call_ids": ["ver_bbd001"],
+      "tool_call_ids": ["ver_2f8483"],
       "contradiction": true
     },
     {
@@ -140,7 +231,7 @@
       "description": "The Memory Agent returned zero findings across all artifacts. This is expected for a disk image (.E01) — Volatility3 requires a RAM capture (.vmem/.mem/.raw). The zero result is honest, not a failure. Analysts requiring memory analysis must provide a RAM capture alongside the disk image.",
       "confidence": "LOW",
       "sources": ["verifier"],
-      "tool_call_ids": ["ver_bbd001"],
+      "tool_call_ids": ["ver_2f8483"],
       "contradiction": true
     }
   ],
@@ -151,11 +242,12 @@
       {
         "finding": "Suspicious WINWORD.EXE in Startup Folder",
         "finding_id": "per_f_0_2df7",
-        "tool_call_id": "per_88b254",
+        "tool_call_id": "per_ae961a",
         "tool": "get_persistence",
         "agent": "PersistenceAgent",
-        "called_at": "2026-06-14T21:00:55.010156",
-        "duration_ms": 2689,
+        "agent_dispatch_at": "2026-06-14T21:23:06.634794+00:00",
+        "tool_called_at": "2026-06-14T21:23:11.389044",
+        "duration_ms": 2918,
         "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
         "hash_verified": true,
         "verdict": "SUPPORTED"
@@ -163,11 +255,12 @@
       {
         "finding": "Suspicious Executable - Flash Player Installer",
         "finding_id": "tl_f_0_b585",
-        "tool_call_id": "tl_d29c15",
+        "tool_call_id": "tl_c92187",
         "tool": "get_timeline",
         "agent": "TimelineAgent",
-        "called_at": "2026-06-14T21:00:43.120886",
-        "duration_ms": 1848,
+        "agent_dispatch_at": "2026-06-14T21:22:54.492001+00:00",
+        "tool_called_at": "2026-06-14T21:22:58.785604",
+        "duration_ms": 1990,
         "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
         "hash_verified": true,
         "verdict": "SUPPORTED"
@@ -175,11 +268,12 @@
       {
         "finding": "CONTRADICTION: Flash Player Installer Severity vs. Corroboration Gap",
         "finding_id": "con_ec7f7d",
-        "tool_call_id": "ver_bbd001",
+        "tool_call_id": "ver_2f8483",
         "tool": "verifier_synthesis",
         "agent": "VerifierAgent",
-        "called_at": "2026-06-14T21:01:16.784025",
-        "cross_references": ["tl_d29c15", "mem_45f1cb", "per_88b254"],
+        "agent_dispatch_at": "2026-06-14T21:23:15.481353+00:00",
+        "tool_called_at": "2026-06-14T21:23:34.328907",
+        "cross_references": ["tl_c92187", "mem_141db7", "per_ae961a"],
         "verdict": "SUPPORTED — Verifier cross-referenced all three agents; absence of corroboration is the finding"
       }
     ]
