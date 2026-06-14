@@ -20,6 +20,22 @@ BENIGN_STARTUP = {
 }
 
 
+def _get_segments(image_path: str) -> list[str]:
+    """Return all EWF segments in order (E01, E02, ...)."""
+    p = Path(image_path)
+    segments = [image_path]
+    if p.suffix.upper() == ".E01":
+        i = 2
+        while True:
+            seg = p.with_suffix(f".E{i:02d}")
+            if seg.exists():
+                segments.append(str(seg))
+                i += 1
+            else:
+                break
+    return segments
+
+
 def _mount_ewf(image_path: str, mount_point: str) -> bool:
     result = subprocess.run(
         ["ewfmount", image_path, mount_point],
@@ -28,8 +44,9 @@ def _mount_ewf(image_path: str, mount_point: str) -> bool:
     return result.returncode == 0
 
 
-def _get_ntfs_offset(ewf_raw: str) -> str:
-    result = subprocess.run(["mmls", ewf_raw], capture_output=True, text=True, timeout=15)
+def _get_ntfs_offset(image_ref: str | list) -> str:
+    cmd = ["mmls"] + (image_ref if isinstance(image_ref, list) else [image_ref])
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
     for line in result.stdout.splitlines():
         if "NTFS" in line or ("07" in line.split() and len(line.split()) >= 3):
             parts = line.split()
@@ -38,19 +55,21 @@ def _get_ntfs_offset(ewf_raw: str) -> str:
     return "63"
 
 
-def _extract_inode(ewf_raw: str, offset: str, inode: str, outpath: str) -> bool:
+def _extract_inode(image_ref: str | list, offset: str, inode: str, outpath: str) -> bool:
+    images = image_ref if isinstance(image_ref, list) else [image_ref]
     result = subprocess.run(
-        ["icat", "-f", "ntfs", "-o", offset, ewf_raw, inode],
+        ["icat", "-f", "ntfs", "-o", offset] + images + [inode],
         stdout=open(outpath, "wb"), stderr=subprocess.PIPE, timeout=30
     )
     return result.returncode == 0 and os.path.getsize(outpath) > 0
 
 
-def _get_startup_items(ewf_raw: str, offset: str, call_id: str) -> list[PersistenceIndicator]:
+def _get_startup_items(image_ref: str | list, offset: str, call_id: str) -> list[PersistenceIndicator]:
     """Extract Startup folder contents using fls."""
     indicators = []
+    images = image_ref if isinstance(image_ref, list) else [image_ref]
     result = subprocess.run(
-        ["fls", "-r", "-f", "ntfs", "-o", offset, ewf_raw],
+        ["fls", "-r", "-f", "ntfs", "-o", offset] + images,
         capture_output=True, text=True, timeout=120
     )
 
@@ -185,27 +204,20 @@ async def get_persistence(image_path: str) -> ToolCallResult:
 
     with EvidenceContext(image_path) as ctx:
         indicators = []
-        mount_point = tempfile.mkdtemp(prefix="fossick_per_")
+        segments = _get_segments(image_path)
 
         try:
-            if not _mount_ewf(image_path, mount_point):
-                raise Exception("ewfmount failed")
-
-            ewf_raw = os.path.join(mount_point, "ewf1")
-            if not os.path.exists(ewf_raw):
-                raise Exception("ewf1 not found after mount")
-
-            offset = await asyncio.to_thread(_get_ntfs_offset, ewf_raw)
+            offset = await asyncio.to_thread(_get_ntfs_offset, segments)
 
             # 1. Startup folder entries
-            startup_items = await asyncio.to_thread(_get_startup_items, ewf_raw, offset, call_id)
+            startup_items = await asyncio.to_thread(_get_startup_items, segments, offset, call_id)
             indicators.extend(startup_items)
 
             # 2. Extract and parse NTUSER.DAT hives
             with tempfile.TemporaryDirectory() as tmpdir:
                 result = await asyncio.to_thread(
                     subprocess.run,
-                    ["fls", "-r", "-f", "ntfs", "-o", offset, ewf_raw],
+                    ["fls", "-r", "-f", "ntfs", "-o", offset] + segments,
                     capture_output=True, text=True, timeout=120
                 )
 
@@ -222,7 +234,7 @@ async def get_persistence(image_path: str) -> ToolCallResult:
                 for i, inode in enumerate(ntuser_inodes[:3]):  # max 3 users
                     hive_path = os.path.join(tmpdir, f"ntuser_{i}.dat")
                     extracted = await asyncio.to_thread(
-                        _extract_inode, ewf_raw, offset, inode, hive_path
+                        _extract_inode, segments, offset, inode, hive_path
                     )
                     if extracted:
                         reg_items = await asyncio.to_thread(

@@ -161,37 +161,67 @@ def _mount_ewf_and_analyze(image_path: str, call_id: str) -> list[TimelineEvent]
     import tempfile
     import os
     events = []
-    mount_point = tempfile.mkdtemp(prefix="fossick_ewf_")
+
+    # Collect all segments (E01, E02, ...) in order
+    p = Path(image_path)
+    segments = [image_path]
+    if p.suffix.upper() == ".E01":
+        i = 2
+        while True:
+            seg = p.with_suffix(f".E{i:02d}")
+            if seg.exists():
+                segments.append(str(seg))
+                i += 1
+            else:
+                break
+
     try:
-        # Mount EWF
-        mount_result = subprocess.run(
-            ["ewfmount", image_path, mount_point],
-            capture_output=True, text=True, timeout=30
-        )
-        if mount_result.returncode != 0:
-            return events
-
-        ewf_raw = os.path.join(mount_point, "ewf1")
-        if not os.path.exists(ewf_raw):
-            return events
-
-        # Get partition layout
+        # Try direct multi-segment fls (no FUSE needed)
         mmls_result = subprocess.run(
-            ["mmls", ewf_raw], capture_output=True, text=True, timeout=15
+            ["mmls"] + segments, capture_output=True, text=True, timeout=15
         )
         offset = ""
         for line in mmls_result.stdout.splitlines():
-            if "NTFS" in line or "0x07" in line or "07" in line.split():
+            if "NTFS" in line or "0x07" in line:
                 parts = line.split()
                 if len(parts) >= 3:
                     offset = parts[2]
                     break
 
-        # Run fls on mounted raw image
         fls_cmd = ["fls", "-r", "-f", "ntfs"]
         if offset:
             fls_cmd += ["-o", offset]
-        fls_cmd.append(ewf_raw)
+        fls_cmd += segments
+
+        fls_result = subprocess.run(fls_cmd, capture_output=True, text=True, timeout=120)
+
+        if fls_result.returncode != 0 or not fls_result.stdout.strip():
+            # Fallback: ewfmount + fls via FUSE
+            mount_point = tempfile.mkdtemp(prefix="fossick_ewf_")
+            mount_result = subprocess.run(
+                ["ewfmount", image_path, mount_point],
+                capture_output=True, text=True, timeout=30
+            )
+            if mount_result.returncode != 0:
+                return events
+            ewf_raw = os.path.join(mount_point, "ewf1")
+            if not os.path.exists(ewf_raw):
+                return events
+            mmls_result = subprocess.run(
+                ["mmls", ewf_raw], capture_output=True, text=True, timeout=15
+            )
+            offset = ""
+            for line in mmls_result.stdout.splitlines():
+                if "NTFS" in line or "0x07" in line:
+                    parts = line.split()
+                    if len(parts) >= 3:
+                        offset = parts[2]
+                        break
+            fls_cmd = ["fls", "-r", "-f", "ntfs"]
+            if offset:
+                fls_cmd += ["-o", offset]
+            fls_cmd.append(ewf_raw)
+            fls_result = subprocess.run(fls_cmd, capture_output=True, text=True, timeout=120)
 
         fls_result = subprocess.run(fls_cmd, capture_output=True, text=True, timeout=120)
 
