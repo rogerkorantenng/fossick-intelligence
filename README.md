@@ -55,7 +55,7 @@ fossick ❯ analyze case_data/nps-2008-jean.E01 --case-id m57-demo
 
 ## Architecture
 
-![Fossick Intelligence Architecture](architecture.svg)
+![Fossick Intelligence Architecture](architecture.png)
 
 <details>
 <summary>Text version</summary>
