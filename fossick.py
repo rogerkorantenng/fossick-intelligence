@@ -433,7 +433,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     _kv("case id", f"{case_id or DIM_W + 'auto-generated' + RESET}")
     _blank()
 
-    start = datetime.now(datetime.UTC)
+    start = datetime.now(UTC)
     investigation_id = str(uuid.uuid4())
     case_id = case_id or f"case_{investigation_id[:8]}"
 
@@ -556,7 +556,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     report = InvestigationReport(
         id=investigation_id, case_id=case_id, image_path=image_path,
         image_sha256=image_sha256, status="completed",
-        started_at=start, completed_at=datetime.now(datetime.UTC),
+        started_at=start, completed_at=datetime.now(UTC),
         findings=all_final, contradictions_detected=len(contradictions),
         contradictions_resolved=len([c for c in contradictions if c.confidence != "LOW"]),
         execution_log=all_logs, evidence_integrity_verified=evidence_ok,
@@ -576,7 +576,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     await send_slack(format_completion_card(case_id, len(all_final), len(contradictions), evidence_ok))
 
     # ── Summary ─────────────────────────────────────────────────────────────────
-    elapsed = (datetime.now(datetime.UTC) - start).total_seconds()
+    elapsed = (datetime.now(UTC) - start).total_seconds()
     _blank()
     print(f"  {DIM_W}{'━' * 54}{RESET}")
     critical = sum(1 for f in all_final if f.severity == "critical" and not f.contradiction)
