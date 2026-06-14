@@ -89,7 +89,7 @@ class DockerMCPClient:
 
             while asyncio.get_event_loop().time() < deadline:
                 try:
-                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=10)
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=150)
                     if not line:
                         break
                     text = line.decode().strip()
