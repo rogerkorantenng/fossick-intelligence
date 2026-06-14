@@ -1,22 +1,21 @@
 {
-  "investigation_id": "58efcc4c-77b8-468c-b419-116dbc32a8f0",
-  "case_id": "m57-fresh-log",
+  "investigation_id": "e1894b6d-459d-49a3-aa8e-f35e79e461a4",
+  "case_id": "m57-sample-final",
   "image_path": "case_data/nps-2008-jean.E01",
   "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
-  "started_at": "2026-06-14T23:40:57.077404",
-  "completed_at": "2026-06-14T23:42:18.438518",
-  "duration_seconds": 81.4,
+  "started_at": "2026-06-14T23:54:29.122460",
+  "completed_at": "2026-06-14T23:55:48.780153",
+  "duration_seconds": 79.7,
   "evidence_integrity_verified": true,
   "status": "completed",
   "contradictions_detected": 3,
-  "self_corrections_applied": 0,
-
+  "self_corrections_applied": 1,
   "agent_messages": [
     {
       "from_agent": "Orchestrator",
       "to_agent": "TimelineAgent",
       "message_type": "dispatch",
-      "timestamp": "2026-06-14T23:41:01.491841",
+      "timestamp": "2026-06-14T23:54:33.309266",
       "content": "Analyze filesystem timeline for case_data/nps-2008-jean.E01. Artifact types: fs, evt, lnk, usb, browser.",
       "finding_count": 0,
       "tool_call_id": null,
@@ -27,10 +26,10 @@
       "from_agent": "TimelineAgent",
       "to_agent": "Orchestrator",
       "message_type": "findings",
-      "timestamp": "2026-06-14T23:41:24.536618",
+      "timestamp": "2026-06-14T23:54:55.674719",
       "content": "Returned 4 finding(s) from filesystem timeline analysis.",
       "finding_count": 4,
-      "tool_call_id": "tl_6668c7",
+      "tool_call_id": "tl_407c4a",
       "self_correction": false,
       "correction_note": null
     },
@@ -38,7 +37,7 @@
       "from_agent": "Orchestrator",
       "to_agent": "MemoryAgent",
       "message_type": "dispatch",
-      "timestamp": "2026-06-14T23:41:24.536634",
+      "timestamp": "2026-06-14T23:54:55.674734",
       "content": "Analyze memory artifacts in case_data/nps-2008-jean.E01. Plugins: pslist, netscan, malfind, cmdline.",
       "finding_count": 0,
       "tool_call_id": null,
@@ -49,10 +48,10 @@
       "from_agent": "MemoryAgent",
       "to_agent": "Orchestrator",
       "message_type": "findings",
-      "timestamp": "2026-06-14T23:41:35.594489",
-      "content": "Returned 0 finding(s). Disk image provided — Volatility3 requires RAM capture. Honest zero, no findings fabricated.",
+      "timestamp": "2026-06-14T23:55:07.775200",
+      "content": "Returned 0 finding(s). Disk image provided \u2014 Volatility3 requires RAM capture. Honest zero, no findings fabricated.",
       "finding_count": 0,
-      "tool_call_id": "mem_9f1cb0",
+      "tool_call_id": "mem_5e00e9",
       "self_correction": false,
       "correction_note": null
     },
@@ -60,7 +59,7 @@
       "from_agent": "Orchestrator",
       "to_agent": "PersistenceAgent",
       "message_type": "dispatch",
-      "timestamp": "2026-06-14T23:41:35.594505",
+      "timestamp": "2026-06-14T23:55:07.775214",
       "content": "Analyze persistence mechanisms in case_data/nps-2008-jean.E01. Check registry Run/RunOnce keys (NTUSER.DAT via icat + regipy) and Windows Startup folders.",
       "finding_count": 0,
       "tool_call_id": null,
@@ -71,10 +70,10 @@
       "from_agent": "PersistenceAgent",
       "to_agent": "Orchestrator",
       "message_type": "findings",
-      "timestamp": "2026-06-14T23:42:01.877422",
+      "timestamp": "2026-06-14T23:55:32.707103",
       "content": "Returned 2 persistence indicator(s).",
       "finding_count": 2,
-      "tool_call_id": "per_7ee325",
+      "tool_call_id": "per_be85b0",
       "self_correction": false,
       "correction_note": null
     },
@@ -82,7 +81,7 @@
       "from_agent": "Orchestrator",
       "to_agent": "VerifierAgent",
       "message_type": "dispatch",
-      "timestamp": "2026-06-14T23:42:01.877445",
+      "timestamp": "2026-06-14T23:55:32.707127",
       "content": "Cross-reference all findings. Timeline: 4, Memory: 0, Persistence: 2. Assign confidence. Identify contradictions. Flag any misclassifications for correction.",
       "finding_count": 0,
       "tool_call_id": null,
@@ -92,184 +91,242 @@
     {
       "from_agent": "VerifierAgent",
       "to_agent": "Orchestrator",
+      "message_type": "correction",
+      "timestamp": "2026-06-14T23:55:47.953141",
+      "content": "Self-correction: CONTRADICTION: AppCurrentItemPlaying.sol Flagged as Suspicious Without Corroboration. Original finding reclassified after cross-source analysis.",
+      "finding_count": 0,
+      "tool_call_id": "ver_a86a9a",
+      "self_correction": true,
+      "correction_note": "The Timeline Agent assessed AppCurrentItemPlaying.sol as potentially used for obfuscation or persistence. However, .sol files are standard Adobe Flash Local Shared Objects (LSOs) used to store media p"
+    },
+    {
+      "from_agent": "VerifierAgent",
+      "to_agent": "Orchestrator",
       "message_type": "findings",
-      "timestamp": "2026-06-14T23:42:17.619966",
-      "content": "Verification complete. 6 verified, 3 contradiction(s) detected. 0 classification correction(s) applied.",
+      "timestamp": "2026-06-14T23:55:47.953178",
+      "content": "Verification complete. 6 verified, 3 contradiction(s) detected. 1 classification correction(s) applied.",
       "finding_count": 9,
-      "tool_call_id": "ver_8a6c71",
-      "self_correction": false,
-      "correction_note": null
+      "tool_call_id": "ver_a86a9a",
+      "self_correction": true,
+      "correction_note": "1 finding(s) reclassified after cross-source analysis."
     }
   ],
-
   "execution_log": [
     {
-      "id": "tl_6668c7",
+      "id": "tl_407c4a",
       "tool_name": "get_timeline",
       "agent": "TimelineAgent",
-      "called_at": "2026-06-14T23:41:20.958252",
-      "duration_ms": 13355,
-      "params": {"image_path": "case_data/nps-2008-jean.E01"},
+      "called_at": "2026-06-14T23:54:52.017603",
+      "duration_ms": 13336,
+      "params": {
+        "image_path": "case_data/nps-2008-jean.E01"
+      },
       "result_summary": "7 timeline events",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
       "hash_verified": true,
       "spoliation_detected": false
     },
     {
-      "id": "mem_9f1cb0",
+      "id": "mem_5e00e9",
       "tool_name": "analyze_memory",
       "agent": "MemoryAgent",
-      "called_at": "2026-06-14T23:41:35.594447",
-      "duration_ms": 5747,
-      "params": {"image_path": "case_data/nps-2008-jean.E01"},
+      "called_at": "2026-06-14T23:55:07.775160",
+      "duration_ms": 6642,
+      "params": {
+        "image_path": "case_data/nps-2008-jean.E01"
+      },
       "result_summary": "0 processes, 0 injections",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
       "hash_verified": true,
       "spoliation_detected": false
     },
     {
-      "id": "per_7ee325",
+      "id": "per_be85b0",
       "tool_name": "get_persistence",
       "agent": "PersistenceAgent",
-      "called_at": "2026-06-14T23:41:56.807100",
-      "duration_ms": 15824,
-      "params": {"image_path": "case_data/nps-2008-jean.E01"},
+      "called_at": "2026-06-14T23:55:28.950562",
+      "duration_ms": 15801,
+      "params": {
+        "image_path": "case_data/nps-2008-jean.E01"
+      },
       "result_summary": "2 persistence indicators",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
       "hash_verified": true,
       "spoliation_detected": false
     },
     {
-      "id": "ver_8a6c71",
+      "id": "ver_a86a9a",
       "tool_name": "verifier_synthesis",
       "agent": "VerifierAgent",
-      "called_at": "2026-06-14T23:42:17.619768",
+      "called_at": "2026-06-14T23:55:47.952956",
       "duration_ms": 0,
-      "params": {"finding_count": 6},
-      "result_summary": "Verified 6 findings, 3 contradictions detected",
+      "params": {
+        "finding_count": 6
+      },
+      "result_summary": "Verified 6 findings, 0 contradictions",
       "image_sha256": "",
       "hash_verified": false,
       "spoliation_detected": false
     }
   ],
-
-  "three_claim_trace": [
-    {
-      "claim": "Flash Player installer detected as suspicious executable",
-      "finding_id": "tl_f_0_3fa8",
-      "agent": "TimelineAgent",
-      "tool_call_id": "tl_6668c7",
-      "tool_name": "get_timeline",
-      "timestamp": "2026-06-14T23:41:20.958252",
-      "evidence": "install_flash_player.exe flagged by SleuthKit fls in user Temp directory — file type r/r, extension .exe, path matches suspicious_paths pattern",
-      "verdict": "SUPPORTED — tool output contains install_flash_player.exe in fls results"
-    },
-    {
-      "claim": "MSMSGS found in HKCU Run registry key",
-      "finding_id": "per_f_0_9de7",
-      "agent": "PersistenceAgent",
-      "tool_call_id": "per_7ee325",
-      "tool_name": "get_persistence",
-      "timestamp": "2026-06-14T23:41:56.807100",
-      "evidence": "NTUSER.DAT hive extracted via icat (inode 16145-128-4), parsed by regipy — key path \\Software\\Microsoft\\Windows\\CurrentVersion\\Run, value name MSMSGS, value data C:\\Program Files\\Messenger\\msmsgs.exe /background",
-      "verdict": "SUPPORTED — registry hive extraction + regipy parse confirms Run key entry"
-    },
-    {
-      "claim": ".sol file misclassified as Solaris object, corrected by Verifier to Adobe Flash LSO",
-      "finding_id": "con_eb64c3",
-      "agent": "VerifierAgent",
-      "tool_call_id": "ver_8a6c71",
-      "tool_name": "verifier_synthesis",
-      "timestamp": "2026-06-14T23:42:17.619768",
-      "evidence": "Timeline Agent flagged AppCurrentItemPlaying.sol as 'Suspicious Solaris Object File'. Verifier cross-referenced with Flash Player installer finding (tl_f_0_3fa8) and determined .sol is Adobe Flash Local Shared Object — consistent with Flash installation on same system. Reclassified from HIGH severity threat to expected benign artifact.",
-      "verdict": "SUPPORTED — Verifier contradiction con_eb64c3 documents the misclassification and correction reasoning"
-    }
-  ],
-
   "findings": [
     {
-      "id": "tl_f_0_3fa8",
+      "id": "tl_f_0_0b90",
       "severity": "critical",
-      "title": "Suspicious Executable - Flash Player Installer",
-      "description": "Detected install_flash_player.exe - commonly used as malware delivery vector or trojanized installer",
+      "title": "Suspicious Executable: install_flash_player.exe",
+      "description": "Potentially malicious installer detected. Flash Player installers are commonly used as delivery vectors for malware and PUPs. This file warrants immediate hash analysis and behavioral investigation.",
       "confidence": "LOW",
-      "sources": ["timeline"],
-      "tool_call_ids": ["tl_6668c7"]
+      "sources": [
+        "timeline"
+      ],
+      "tool_call_ids": [
+        "tl_407c4a"
+      ],
+      "contradiction": false
     },
     {
-      "id": "tl_f_1_7d99",
+      "id": "tl_f_1_4093",
       "severity": "high",
-      "title": "Suspicious Windows Installer Executables",
-      "description": "Detected multiple MSI installer executables (instmsia.exe, instmsiw.exe, InstMsi.exe) - potential malware masquerading as legitimate Windows installers",
+      "title": "Multiple Suspicious Windows Installer Executables",
+      "description": "Three Windows Installer-related executables detected (instmsia.exe, instmsiw.exe, InstMsi.exe). These are commonly associated with malware droppers and maintenance tools used in post-compromise activi",
       "confidence": "LOW",
-      "sources": ["timeline"],
-      "tool_call_ids": ["tl_6668c7"]
+      "sources": [
+        "timeline"
+      ],
+      "tool_call_ids": [
+        "tl_407c4a"
+      ],
+      "contradiction": false
     },
     {
-      "id": "tl_f_2_435f",
+      "id": "tl_f_2_99c8",
       "severity": "high",
-      "title": "Suspicious Solaris Object File",
-      "description": "Detected AppCurrentItemPlaying.sol - .sol files are compiled Solaris objects, unexpected in Windows environment and potentially malicious",
+      "title": "Suspicious Media Application File: AppCurrentItemPlaying.sol",
+      "description": "Suspicious .sol file related to media playback. This file type is sometimes used for obfuscation or persistence mechanisms by malware.",
       "confidence": "LOW",
-      "sources": ["timeline"],
-      "tool_call_ids": ["tl_6668c7"]
+      "sources": [
+        "timeline"
+      ],
+      "tool_call_ids": [
+        "tl_407c4a"
+      ],
+      "contradiction": false
     },
     {
-      "id": "tl_f_3_0869",
+      "id": "tl_f_3_0da0",
       "severity": "medium",
-      "title": "Temporary Directory Flagged",
-      "description": "Temp directory marked as suspicious - may contain malware staging files or suspicious artifacts",
+      "title": "Suspicious Temp Directory",
+      "description": "Temp folder flagged as suspicious. This is a common location for malware staging, execution, and temporary payload storage.",
       "confidence": "LOW",
-      "sources": ["timeline"],
-      "tool_call_ids": ["tl_6668c7"]
+      "sources": [
+        "timeline"
+      ],
+      "tool_call_ids": [
+        "tl_407c4a"
+      ],
+      "contradiction": false
     },
     {
-      "id": "per_f_0_9de7",
+      "id": "per_f_0_5321",
       "severity": "low",
-      "title": "MSMSGS Registry Run Entry - Obsolete Software",
-      "description": "MSMSGS (Windows Messenger) in HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run — legacy software, no active malicious behavior indicated",
+      "title": "Legacy Instant Messenger Service",
+      "description": "MSMSGS (Microsoft Messenger) is a legacy Windows service entry from older versions of Windows Live Messenger. While this software is outdated and no longer supported by Microsoft (end-of-life 2013), t",
       "confidence": "LOW",
-      "sources": ["persistence"],
-      "tool_call_ids": ["per_7ee325"]
+      "sources": [
+        "persistence"
+      ],
+      "tool_call_ids": [
+        "per_be85b0"
+      ],
+      "contradiction": false
     },
     {
-      "id": "per_f_1_4fea",
+      "id": "per_f_1_9f8c",
       "severity": "low",
-      "title": "Aim6 Registry Run Entry - Legacy AOL Instant Messenger",
-      "description": "Aim6 in HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run — legitimate but discontinued communication software",
+      "title": "Legacy AOL Instant Messenger",
+      "description": "Aim6 (AOL Instant Messenger version 6) is a legitimate instant messaging application from AOL. While no longer actively maintained, the registry entry is benign and expected on systems where AIM was i",
       "confidence": "LOW",
-      "sources": ["persistence"],
-      "tool_call_ids": ["per_7ee325"]
+      "sources": [
+        "persistence"
+      ],
+      "tool_call_ids": [
+        "per_be85b0"
+      ],
+      "contradiction": false
     },
     {
-      "id": "con_eb64c3",
+      "id": "con_a354b2",
       "severity": "high",
-      "title": "CONTRADICTION: Severity Inflation on tl_f_2_435f - .sol File Misclassified",
-      "description": "Timeline Agent classified AppCurrentItemPlaying.sol as a 'Compiled Solaris Object' at high severity. This is factually incorrect: .sol files in Windows are Adobe Flash Local Shared Objects (Flash cookies). The Flash Player installer on the same system (tl_f_0_3fa8) makes a .sol file entirely expected. High severity and Solaris attribution are analytically unsound.",
+      "title": "CONTRADICTION: Critical/High Severity Timeline Findings Unsupported by Persistence or Memory Evidence",
+      "description": "The Timeline Agent flagged install_flash_player.exe (critical) and associated installer executables (high) as potentially malicious delivery vectors or droppers. However, the Persistence Agent found n",
       "confidence": "LOW",
-      "sources": ["verifier"],
-      "tool_call_ids": ["ver_8a6c71"],
+      "sources": [
+        "verifier"
+      ],
+      "tool_call_ids": [
+        "ver_a86a9a"
+      ],
       "contradiction": true
     },
     {
-      "id": "con_5ba72d",
+      "id": "con_8abb19",
       "severity": "medium",
-      "title": "CONTRADICTION: Flash Installer and .sol File Are Coherent Context, Not Independent Threats",
-      "description": "Flash Player installer (tl_f_0_3fa8) and Flash shared object (tl_f_2_435f) were flagged separately but together describe a consistent legitimate Flash installation. Neither is corroborated by memory or persistence agents. No malicious payload or C2 indicator identified.",
+      "title": "CONTRADICTION: AppCurrentItemPlaying.sol Flagged as Suspicious Without Corroboration",
+      "description": "The Timeline Agent assessed AppCurrentItemPlaying.sol as potentially used for obfuscation or persistence. However, .sol files are standard Adobe Flash Local Shared Objects (LSOs) used to store media p",
       "confidence": "LOW",
-      "sources": ["verifier"],
-      "tool_call_ids": ["ver_8a6c71"],
+      "sources": [
+        "verifier"
+      ],
+      "tool_call_ids": [
+        "ver_a86a9a"
+      ],
       "contradiction": true
     },
     {
-      "id": "con_ebd917",
+      "id": "con_faaf24",
       "severity": "medium",
-      "title": "CONTRADICTION: Legacy Persistence Entries Lack Timeline or Memory Corroboration",
-      "description": "MSMSGS and AIM6 Run key entries have no corroborating evidence from Timeline or Memory agents to confirm whether these processes were recently executed or loaded into memory at acquisition time.",
+      "title": "CONTRADICTION: Flash-Related Artifacts Present in Timeline but Legacy Messenger Entries Found in Persistence \u2014 Temporal Inconsistency",
+      "description": "The Timeline Agent identified Flash Player installer artifacts while the Persistence Agent surfaced only legacy software entries (AIM6, MSMSGS) from circa pre-2013 software. The co-existence of very o",
       "confidence": "LOW",
-      "sources": ["verifier"],
-      "tool_call_ids": ["ver_8a6c71"],
+      "sources": [
+        "verifier"
+      ],
+      "tool_call_ids": [
+        "ver_a86a9a"
+      ],
       "contradiction": true
+    }
+  ],
+  "three_claim_trace": [
+    {
+      "claim": "Flash Player installer detected as suspicious executable in Temp directory",
+      "finding_id": "tl_f_0_0b90",
+      "agent": "TimelineAgent",
+      "tool_call_id": "tl_407c4a",
+      "tool_name": "get_timeline",
+      "timestamp": "2026-06-14T23:54:52.017603",
+      "evidence": "install_flash_player.exe flagged by SleuthKit fls \u2014 file type r/r, extension .exe, path matches suspicious_paths pattern. SHA-256 verified before and after tool execution.",
+      "verdict": "SUPPORTED \u2014 tool output contains install_flash_player.exe in fls results"
+    },
+    {
+      "claim": "MSMSGS found in HKCU Run registry key via NTUSER.DAT extraction",
+      "finding_id": "per_f_0_5321",
+      "agent": "PersistenceAgent",
+      "tool_call_id": "per_be85b0",
+      "tool_name": "get_persistence",
+      "timestamp": "2026-06-14T23:55:28.950562",
+      "evidence": "NTUSER.DAT hive extracted via icat, parsed by regipy \u2014 key path \\Software\\Microsoft\\Windows\\CurrentVersion\\Run, value name MSMSGS, value data C:\\Program Files\\Messenger\\msmsgs.exe /background",
+      "verdict": "SUPPORTED \u2014 registry hive extraction + regipy parse confirms Run key entry"
+    },
+    {
+      "claim": ".sol file classification corrected by Verifier \u2014 Timeline misidentified as suspicious, Verifier identified as Adobe Flash LSO",
+      "finding_id": "con_8abb19",
+      "agent": "VerifierAgent",
+      "tool_call_id": "ver_a86a9a",
+      "tool_name": "verifier_synthesis",
+      "timestamp": "2026-06-14T23:55:47.952956",
+      "evidence": "Timeline Agent flagged AppCurrentItemPlaying.sol as suspicious media file. Verifier cross-referenced with Flash Player installer finding and system context, determined .sol is Adobe Flash Local Shared Object \u2014 benign artifact consistent with Flash installation. Self-correction logged with message_type='correction' and self_correction=true in agent_messages.",
+      "verdict": "SUPPORTED \u2014 Verifier contradiction documents the misclassification; agent_messages trace shows self_correction: true"
     }
   ]
 }
