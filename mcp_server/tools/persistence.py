@@ -86,24 +86,21 @@ def _get_startup_items(image_ref: str | list, offset: str, call_id: str) -> list
             name_lower = name.lower()
 
             if name_lower in BENIGN_STARTUP or name_lower == "desktop.ini":
-                in_startup = False
                 continue
 
-            # Flag suspicious startup entries
             is_suspicious = (
                 name_lower in SUSPICIOUS_STARTUP or
-                any(ext in name_lower for ext in [".exe", ".dll", ".bat", ".vbs", ".ps1"]) and
-                name_lower not in BENIGN_STARTUP
+                any(name_lower.endswith(ext) for ext in [".exe", ".dll", ".bat", ".vbs", ".ps1"])
             )
 
             if is_suspicious:
                 indicators.append(PersistenceIndicator(
-                    source="scheduled_task",  # reusing for startup
+                    source="scheduled_task",
                     name=name,
                     path=f"Startup\\{name}",
                     evidence_ref=call_id,
                 ))
-        else:
+        elif in_startup and "d/d" not in line and "Startup" not in line:
             in_startup = False
 
     return indicators
