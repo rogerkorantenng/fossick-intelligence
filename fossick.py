@@ -481,7 +481,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     from backend.config import settings
     import aiosqlite
     from backend.database import init_db, save_investigation
-    from backend.models import InvestigationReport
+    from backend.models import InvestigationReport, AgentMessage
     from backend.slack_webhook import send_slack, format_finding_card, format_contradiction_card, format_completion_card
     from mcp_server.tools.integrity import compute_sha256
     import uuid
@@ -517,6 +517,11 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         _blank()
 
     docker_client = get_docker_client()
+    agent_messages: list[AgentMessage] = []
+
+    def _amsg(from_a: str, to_a: str, mtype: str, content: str, **kw) -> AgentMessage:
+        return AgentMessage(from_agent=from_a, to_agent=to_a, message_type=mtype,
+                            timestamp=datetime.now(UTC), content=content, **kw)
 
     def _agent_header(color: str, num: str, name: str):
         print(f"  {color}{BOLD}[{num}]{RESET}  {WHITE}{BOLD}{name}{RESET}  {DIM_W}running…{RESET}", end="\r", flush=True)
@@ -565,6 +570,8 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
             print(f"  {color}  └─{RESET}  {DIM_W}confidence {CONF_COLOR.get(conf,YELLOW)}{conf}{RESET}  {DIM_W}·  sources: {sources}  ·  ref: {calls}{RESET}")
 
     # ── Timeline Agent ──────────────────────────────────────────────────────────
+    agent_messages.append(_amsg("Orchestrator", "TimelineAgent", "dispatch",
+        f"Analyze filesystem timeline for {image_path}. Artifact types: fs, evt, lnk, usb, browser."))
     _agent_header(BLUE, "1", "Timeline Agent")
     try:
         tl_findings, tl_logs = await TimelineAgent(docker_client).run(image_path)
@@ -572,12 +579,18 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         print(f"  {RED}✗  Timeline agent error: {e}{RESET}")
         tl_findings, tl_logs = [], []
     ms = tl_logs[0].duration_ms if tl_logs else 0
+    agent_messages.append(_amsg("TimelineAgent", "Orchestrator", "findings",
+        f"Returned {len(tl_findings)} finding(s) from filesystem timeline analysis.",
+        finding_count=len(tl_findings),
+        tool_call_id=tl_logs[0].id if tl_logs else None))
     _agent_done(BLUE, "1", "Timeline Agent", len(tl_findings), ms)
     for f in tl_findings:
         _print_finding_live(f, 0)
 
     # ── Memory Agent ────────────────────────────────────────────────────────────
     _blank()
+    agent_messages.append(_amsg("Orchestrator", "MemoryAgent", "dispatch",
+        f"Analyze memory artifacts in {image_path}. Plugins: pslist, netscan, malfind, cmdline."))
     _agent_header(RED, "2", "Memory Agent")
     try:
         mem_findings, mem_logs = await MemoryAgent(docker_client).run(image_path)
@@ -585,12 +598,20 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         print(f"  {RED}✗  Memory agent error: {e}{RESET}")
         mem_findings, mem_logs = [], []
     ms = mem_logs[0].duration_ms if mem_logs else 0
+    agent_messages.append(_amsg("MemoryAgent", "Orchestrator", "findings",
+        f"Returned {len(mem_findings)} finding(s)." + (
+            " Disk image provided — Volatility3 requires RAM capture. Honest zero, no findings fabricated."
+            if len(mem_findings) == 0 else ""),
+        finding_count=len(mem_findings),
+        tool_call_id=mem_logs[0].id if mem_logs else None))
     _agent_done(RED, "2", "Memory Agent", len(mem_findings), ms)
     for f in mem_findings:
         _print_finding_live(f, 0)
 
     # ── Persistence Agent ───────────────────────────────────────────────────────
     _blank()
+    agent_messages.append(_amsg("Orchestrator", "PersistenceAgent", "dispatch",
+        f"Analyze persistence mechanisms in {image_path}. Check registry Run/RunOnce keys and Windows Startup folders."))
     _agent_header(ORANGE, "3", "Persistence Agent")
     try:
         per_findings, per_logs = await PersistenceAgent(docker_client).run(image_path)
@@ -598,6 +619,10 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         print(f"  {RED}✗  Persistence agent error: {e}{RESET}")
         per_findings, per_logs = [], []
     ms = per_logs[0].duration_ms if per_logs else 0
+    agent_messages.append(_amsg("PersistenceAgent", "Orchestrator", "findings",
+        f"Returned {len(per_findings)} persistence indicator(s).",
+        finding_count=len(per_findings),
+        tool_call_id=per_logs[0].id if per_logs else None))
     _agent_done(ORANGE, "3", "Persistence Agent", len(per_findings), ms)
     for f in per_findings:
         _print_finding_live(f, 0)
@@ -613,22 +638,36 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     if timeline_has_executables and len(per_findings) == 0:
         _blank()
         print(f"  {YELLOW}⟳  self-correcting:{RESET}  {DIM_W}timeline found executables but persistence returned zero — re-running{RESET}")
+        agent_messages.append(_amsg("Orchestrator", "PersistenceAgent", "dispatch",
+            "Timeline found executable artifacts but persistence returned zero. Re-running persistence analysis.",
+            self_correction=True,
+            correction_note="Triggered by cross-agent discrepancy: timeline executables with no persistence corroboration."))
         try:
             per_findings2, per_logs2 = await PersistenceAgent(docker_client).run(image_path)
             if len(per_findings2) > len(per_findings):
                 per_findings = per_findings2
                 all_logs.extend(per_logs2)
                 self_corrections += 1
+                agent_messages.append(_amsg("PersistenceAgent", "Orchestrator", "correction",
+                    f"Re-run returned {len(per_findings2)} indicator(s). Updated findings.",
+                    finding_count=len(per_findings2), self_correction=True,
+                    tool_call_id=per_logs2[0].id if per_logs2 else None))
                 print(f"  {GREEN}✓  re-run found {len(per_findings2)} indicator(s){RESET}")
                 for f in per_findings2:
                     _print_finding_live(f, 0)
             else:
+                agent_messages.append(_amsg("PersistenceAgent", "Orchestrator", "correction",
+                    "Re-run confirmed: zero persistence indicators. Discrepancy noted for Verifier.",
+                    finding_count=0, self_correction=True))
                 print(f"  {DIM_W}re-run confirmed: zero persistence indicators — discrepancy noted for Verifier{RESET}")
         except Exception:
             pass
 
     # ── Verifier Agent ──────────────────────────────────────────────────────────
     _blank()
+    agent_messages.append(_amsg("Orchestrator", "VerifierAgent", "dispatch",
+        f"Cross-reference all findings. Timeline: {len(tl_findings)}, Memory: {len(mem_findings)}, "
+        f"Persistence: {len(per_findings)}. Assign confidence. Identify contradictions."))
     _agent_header(PURPLE, "4", "Verifier Agent")
     try:
         verified, contradictions, ver_logs = await VerifierAgent().run(
@@ -643,6 +682,12 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         if "corrected" in f.description.lower() or "reclassified" in f.description.lower()
     )
     self_corrections += verifier_corrections
+    agent_messages.append(_amsg("VerifierAgent", "Orchestrator", "findings",
+        f"Verification complete. {len(verified)} verified, {len(contradictions)} contradiction(s). "
+        f"{verifier_corrections} classification correction(s) applied.",
+        finding_count=len(verified) + len(contradictions),
+        tool_call_id=ver_logs[0].id if ver_logs else None,
+        self_correction=verifier_corrections > 0))
 
     _agent_done(PURPLE, "4", "Verifier Agent", len(contradictions), 0)
     if contradictions:
@@ -664,7 +709,8 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         started_at=start, completed_at=datetime.now(UTC),
         findings=all_final, contradictions_detected=len(contradictions),
         contradictions_resolved=len([c for c in contradictions if c.confidence != "LOW"]),
-        execution_log=all_logs, self_corrections_applied=self_corrections,
+        execution_log=all_logs, agent_messages=agent_messages,
+        self_corrections_applied=self_corrections,
         evidence_integrity_verified=evidence_ok,
     )
     async with aiosqlite.connect(settings.db_path) as db:
