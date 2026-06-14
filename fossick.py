@@ -459,10 +459,39 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     def _print_finding_live(f, idx: int):
         color = SEV_COLOR.get(f.severity, GRAY)
         is_contra = f.contradiction
-        label = f"{YELLOW}⚡ CONTRADICTION{RESET}" if is_contra else f"{color}{f.severity.upper()}{RESET}"
-        print(f"\n  {DIM_W}  ├─{RESET} {label}  {BOLD}{WHITE}{f.title}{RESET}")
-        desc = f.description[:120] + ("…" if len(f.description) > 120 else "")
-        print(f"  {DIM_W}  │   {LGRAY}{desc}{RESET}")
+        conf = f.confidence if hasattr(f, "confidence") else "LOW"
+
+        if is_contra:
+            print(f"\n  {YELLOW}  ╔═ ⚡ CONTRADICTION{RESET}")
+            print(f"  {YELLOW}  ║{RESET}  {BOLD}{WHITE}{f.title}{RESET}")
+            # Word-wrap description at 72 chars
+            words = (f.contradiction_description or f.description).split()
+            line, lines = [], []
+            for w in words:
+                if sum(len(x)+1 for x in line) + len(w) > 68:
+                    lines.append(" ".join(line)); line = [w]
+                else:
+                    line.append(w)
+            if line: lines.append(" ".join(line))
+            for l in lines:
+                print(f"  {YELLOW}  ║{RESET}  {DIM_W}{l}{RESET}")
+            sources = " + ".join(f.sources) if f.sources else "verifier"
+            print(f"  {YELLOW}  ╚═{RESET}  {DIM_W}confidence {CONF_COLOR.get(conf,YELLOW)}{conf}{RESET}  {DIM_W}·  sources: {sources}{RESET}")
+        else:
+            print(f"\n  {color}  ┌─ {f.severity.upper()}{RESET}  {BOLD}{WHITE}{f.title}{RESET}")
+            words = f.description.split()
+            line, lines = [], []
+            for w in words:
+                if sum(len(x)+1 for x in line) + len(w) > 68:
+                    lines.append(" ".join(line)); line = [w]
+                else:
+                    line.append(w)
+            if line: lines.append(" ".join(line))
+            for l in lines:
+                print(f"  {color}  │{RESET}  {LGRAY}{l}{RESET}")
+            sources = " + ".join(f.sources) if f.sources else "unknown"
+            calls = ", ".join(f.tool_call_ids[:2]) if f.tool_call_ids else "—"
+            print(f"  {color}  └─{RESET}  {DIM_W}confidence {CONF_COLOR.get(conf,YELLOW)}{conf}{RESET}  {DIM_W}·  sources: {sources}  ·  ref: {calls}{RESET}")
 
     # ── Timeline Agent ──────────────────────────────────────────────────────────
     _agent_header(BLUE, "1", "Timeline Agent")
@@ -476,7 +505,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         _print_finding_live(f, 0)
 
     # ── Memory Agent ────────────────────────────────────────────────────────────
-    _blank() if tl_findings else None
+    _blank()
     _agent_header(RED, "2", "Memory Agent")
     try:
         mem_findings, mem_logs = await MemoryAgent(docker_client).run(image_path)
@@ -488,7 +517,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         _print_finding_live(f, 0)
 
     # ── Persistence Agent ───────────────────────────────────────────────────────
-    _blank() if mem_findings else None
+    _blank()
     _agent_header(ORANGE, "3", "Persistence Agent")
     try:
         per_findings, per_logs = await PersistenceAgent(docker_client).run(image_path)
