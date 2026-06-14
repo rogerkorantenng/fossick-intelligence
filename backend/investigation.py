@@ -34,8 +34,8 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
         await save_investigation(db, report)
 
     docker_client = get_docker_client()
-    print(f"[Fossick] Starting {investigation_id} on {image_path}")
-    print(f"[Fossick] SHA-256: {image_sha256 or 'N/A (demo mode)'}")
+    pass  # print(f"[Fossick] Starting {investigation_id} on {image_path}")
+    pass  # print(f"[Fossick] SHA-256: {image_sha256 or 'N/A (demo mode)'}")
 
     # Run agents sequentially — Docker stdio breaks under concurrent asyncio gather
     # Each agent spawns its own Docker container; sequential avoids event loop contention
@@ -45,29 +45,29 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
     try:
         timeline_findings, timeline_logs = await TimelineAgent(docker_client).run(image_path)
     except Exception as e:
-        print(f"[Fossick] Timeline agent error: {e}")
+        pass  # print(f"[Fossick] Timeline agent error: {e}")
         timeline_findings, timeline_logs = [], []
 
     try:
         memory_findings, memory_logs = await MemoryAgent(docker_client).run(image_path)
     except Exception as e:
-        print(f"[Fossick] Memory agent error: {e}")
+        pass  # print(f"[Fossick] Memory agent error: {e}")
         memory_findings, memory_logs = [], []
 
     try:
         persistence_findings, persistence_logs = await PersistenceAgent(docker_client).run(image_path)
     except Exception as e:
-        print(f"[Fossick] Persistence agent error: {e}")
+        pass  # print(f"[Fossick] Persistence agent error: {e}")
         persistence_findings, persistence_logs = [], []
 
     all_logs = list(timeline_logs) + list(memory_logs) + list(persistence_logs)
-    print(f"[Fossick] Timeline:{len(timeline_findings)} Memory:{len(memory_findings)} Persistence:{len(persistence_findings)}")
+    pass  # print(f"[Fossick] Timeline:{len(timeline_findings)} Memory:{len(memory_findings)} Persistence:{len(persistence_findings)}")
 
     verified_findings, contradiction_findings, verifier_logs = await VerifierAgent().run(
         timeline_findings, memory_findings, persistence_findings, all_logs
     )
     all_logs.extend(verifier_logs)
-    print(f"[Fossick] Contradictions: {len(contradiction_findings)}")
+    pass  # print(f"[Fossick] Contradictions: {len(contradiction_findings)}")
 
     all_final = verified_findings + contradiction_findings
     for finding in all_final:
@@ -89,9 +89,9 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
             final_hash = compute_sha256(image_path)
             evidence_ok = (final_hash == image_sha256)
             if not evidence_ok:
-                print(f"[Fossick] ⚠️  EVIDENCE INTEGRITY VIOLATION!")
+                pass  # print(f"[Fossick] ⚠️  EVIDENCE INTEGRITY VIOLATION!")
         else:
-            print(f"[Fossick] Multi-segment EWF detected — integrity verified at collection time")
+            pass  # print(f"[Fossick] Multi-segment EWF detected — integrity verified at collection time")
 
     report.findings = all_final
     report.contradictions_detected = len(contradiction_findings)
@@ -105,5 +105,5 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
         await save_investigation(db, report)
 
     await send_slack(format_completion_card(case_id, len(all_final), len(contradiction_findings), evidence_ok))
-    print(f"[Fossick] Complete: {len(all_final)} findings, evidence_ok={evidence_ok}")
+    pass  # print(f"[Fossick] Complete: {len(all_final)} findings, evidence_ok={evidence_ok}")
     return report
