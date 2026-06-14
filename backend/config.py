@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     case_data_path: str = str(Path(__file__).parent.parent / "case_data")
     docker_image: str = "fossick-mcp"
     mcp_timeout: int = 300
+    dashboard_url: str = "http://localhost:5173"
 
     model_config = {"env_file": str(_ENV_FILE)}
 
