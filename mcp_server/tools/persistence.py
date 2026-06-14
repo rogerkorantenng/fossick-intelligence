@@ -246,9 +246,6 @@ async def get_persistence(image_path: str) -> ToolCallResult:
                 path="system",
                 evidence_ref=call_id,
             ))
-        finally:
-            subprocess.run(["umount", mount_point], capture_output=True)
-            subprocess.run(["rmdir", mount_point], capture_output=True)
 
     result = PersistenceResult(indicators=indicators, total_count=len(indicators))
     return ToolCallResult(
