@@ -137,7 +137,7 @@ Every tool call wraps execution in an `EvidenceContext` that SHA-256 hashes the 
 Most forensic tools give you a list of findings. The Verifier cross-references all three agents and flags contradictions — "this file is on disk but has no memory artifacts and no persistence entries." It assigns confidence scores based on cross-source corroboration. LOW confidence findings go to Slack for analyst review. HIGH confidence findings are auto-confirmed. The system knows when it is not sure.
 
 **Real persistence detection**
-The Persistence Agent mounts EWF images using `ewfmount`, extracts NTUSER.DAT hives with `icat`, and parses them with `regipy` to find Run and RunOnce registry keys. It also scans every Windows Startup folder for non-standard executables. On the M57-Jean test case it found `WINWORD.EXE` in a Startup folder — a genuine forensic indicator.
+The Persistence Agent extracts NTUSER.DAT hives with `icat`, parses them with `regipy` to find Run and RunOnce registry keys, and scans every Windows Startup folder for non-standard executables. On the M57-Jean test case it found `MSMSGS` and `Aim6` in the HKCU Run key, and confirmed all four Startup folders were empty of non-standard executables.
 
 **Slack as the ops surface**
 Findings stream to Slack as they are discovered. Low-confidence findings get interactive Approve/Dismiss cards. Analyst decisions made on a phone update the web dashboard within five seconds. The whole team always sees the same state.
