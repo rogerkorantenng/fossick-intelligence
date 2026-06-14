@@ -1,0 +1,14 @@
+venv/
+__pycache__/
+*.pyc
+.env
+fossick.db
+case_data/
+*.E01
+*.vmem
+*.mem
+*.raw
+*.dd
+frontend/node_modules/
+frontend/dist/
+docs/

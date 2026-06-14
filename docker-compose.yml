@@ -1,0 +1,12 @@
+services:
+  mcp:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ./mcp_server:/fossick/mcp_server
+      - ${CASE_DATA_PATH:-./case_data}:/case_data:ro
+    stdin_open: true
+    tty: true
+    environment:
+      - PYTHONPATH=/fossick
