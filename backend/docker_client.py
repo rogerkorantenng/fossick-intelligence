@@ -63,23 +63,64 @@ class DockerMCPClient:
                 "id": "init"
             }) + "\n"
 
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=(init_msg + call_payload + "\n").encode()),
-                timeout=settings.mcp_timeout
-            )
+            # MCP requires notifications/initialized after init before any tool calls
+            initialized_notif = json.dumps({
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+                "params": {}
+            }) + "\n"
 
-            lines = [l.strip() for l in stdout.decode().split("\n") if l.strip()]
-            for line in reversed(lines):
+            # Write messages with small delays so server processes each one
+            proc.stdin.write(init_msg.encode())
+            await proc.stdin.drain()
+            await asyncio.sleep(0.5)
+
+            proc.stdin.write(initialized_notif.encode())
+            await proc.stdin.drain()
+            await asyncio.sleep(0.2)
+
+            proc.stdin.write((call_payload + "\n").encode())
+            await proc.stdin.drain()
+
+            # Read responses with timeout
+            all_output = ""
+            tool_response = None
+            deadline = asyncio.get_event_loop().time() + settings.mcp_timeout
+
+            while asyncio.get_event_loop().time() < deadline:
                 try:
-                    response = json.loads(line)
-                    if "result" in response:
-                        content = response["result"].get("content", [])
-                        if content:
-                            return json.loads(content[0].get("text", "{}"))
-                except Exception:
-                    continue
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=10)
+                    if not line:
+                        break
+                    text = line.decode().strip()
+                    if not text:
+                        continue
+                    try:
+                        msg = json.loads(text)
+                        # Look for tool call response (has id matching our call)
+                        if msg.get("id") == str(json.loads(call_payload).get("id")):
+                            tool_response = msg
+                            break
+                        elif "result" in msg and "content" in str(msg.get("result", {})):
+                            tool_response = msg
+                            break
+                    except Exception:
+                        pass
+                except asyncio.TimeoutError:
+                    break
 
-            return {"error": f"No valid MCP response. stderr: {stderr.decode()[:300]}"}
+            proc.stdin.close()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5)
+            except asyncio.TimeoutError:
+                proc.kill()
+
+            if tool_response and "result" in tool_response:
+                content = tool_response["result"].get("content", [])
+                if content:
+                    return json.loads(content[0].get("text", "{}"))
+
+            return {"error": "No valid MCP tool response received"}
 
         except asyncio.TimeoutError:
             return {"error": f"Tool {tool_name} timed out after {settings.mcp_timeout}s"}
