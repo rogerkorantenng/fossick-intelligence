@@ -22,7 +22,7 @@ class MemoryAgent(AgentBase):
         data = raw.get("data", {})
         log = ToolCallLog(
             id=call_id, tool_name="analyze_memory", agent="MemoryAgent",
-            called_at=datetime.now(UTC), duration_ms=raw.get("duration_ms", 0),
+            called_at=datetime.now(), duration_ms=raw.get("duration_ms", 0),
             params={"image_path": image_path},
             result_summary=f"{len(data.get('processes', []))} processes, {data.get('injections_detected', 0)} injections",
             image_sha256=raw.get("image_sha256", ""), hash_verified=raw.get("hash_verified", False),

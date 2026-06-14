@@ -19,7 +19,7 @@ class PersistenceAgent(AgentBase):
         data = raw.get("data", {})
         log = ToolCallLog(
             id=call_id, tool_name="get_persistence", agent="PersistenceAgent",
-            called_at=datetime.now(UTC), duration_ms=raw.get("duration_ms", 0),
+            called_at=datetime.now(), duration_ms=raw.get("duration_ms", 0),
             params={"image_path": image_path},
             result_summary=f"{data.get('total_count', 0)} persistence indicators",
             image_sha256=raw.get("image_sha256", ""), hash_verified=raw.get("hash_verified", False),

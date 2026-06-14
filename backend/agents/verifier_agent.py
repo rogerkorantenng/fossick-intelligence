@@ -70,7 +70,7 @@ Return JSON:
 
         log = ToolCallLog(
             id=call_id, tool_name="verifier_synthesis", agent="VerifierAgent",
-            called_at=datetime.now(UTC),
+            called_at=datetime.now(),
             params={"finding_count": len(all_findings)},
             result_summary=f"Verified {len(all_findings)} findings, {len(contradictions)} contradictions",
         )
