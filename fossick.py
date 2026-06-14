@@ -400,6 +400,77 @@ async def do_report(investigation_id: str):
     print_report(report)
 
 
+async def do_logs(investigation_id: str):
+    from backend.database import list_investigations, get_investigation, init_db
+    from backend.config import settings
+    import aiosqlite
+
+    async with aiosqlite.connect(settings.db_path) as db:
+        await init_db(db)
+        invs    = await list_investigations(db)
+        matched = [i for i in invs if i["id"].startswith(investigation_id)
+                   or i["case_id"] == investigation_id]
+        if not matched:
+            print(f"\n  {RED}✗{RESET}  Investigation not found: {DIM_W}{investigation_id}{RESET}\n")
+            return
+        report = await get_investigation(db, matched[0]["id"])
+
+    _blank()
+    print(f"  {BOLD}{WHITE}{'━' * 54}{RESET}")
+    print(f"  {BOLD}{WHITE}  AUDIT TRAIL  ·  {report['case_id']}{RESET}")
+    print(f"  {BOLD}{WHITE}{'━' * 54}{RESET}")
+    _blank()
+
+    msgs = report.get("agent_messages", [])
+    if msgs:
+        print(f"  {BOLD}{WHITE}agent messages ({len(msgs)}){RESET}")
+        _blank()
+        for m in msgs:
+            ts = m.get("timestamp", "")[:19].replace("T", " ")
+            from_a = m.get("from_agent", "?")
+            to_a   = m.get("to_agent", "?")
+            mtype  = m.get("message_type", "")
+            content = m.get("content", "")
+            correction = m.get("self_correction", False)
+            color = YELLOW if correction else DIM_W
+            marker = f"{CYAN}⟳ " if correction else "  "
+            print(f"  {marker}{color}{ts}  {BOLD}{from_a}{RESET}{DIM_W} → {RESET}{BOLD}{to_a}{RESET}  {DIM_W}[{mtype}]{RESET}")
+            # word-wrap content
+            words = content.split()
+            line, lines = [], []
+            for w in words:
+                if sum(len(x)+1 for x in line) + len(w) > 64:
+                    lines.append(" ".join(line)); line = [w]
+                else:
+                    line.append(w)
+            if line: lines.append(" ".join(line))
+            for l in lines:
+                print(f"       {DIM_W}{l}{RESET}")
+            if m.get("tool_call_id"):
+                print(f"       {DIM_W}ref: {CYAN}{m['tool_call_id']}{RESET}")
+            if m.get("correction_note"):
+                print(f"       {YELLOW}correction: {m['correction_note']}{RESET}")
+            _blank()
+
+    logs = report.get("execution_log", [])
+    if logs:
+        print(f"  {BOLD}{WHITE}tool execution log ({len(logs)}){RESET}")
+        _blank()
+        for l in logs:
+            ts = l.get("called_at", "")[:19].replace("T", " ")
+            verified = f"{GREEN}✓ hash verified{RESET}" if l.get("hash_verified") else f"{YELLOW}⚠ hash unverified{RESET}"
+            print(f"  {DIM_W}{ts}{RESET}  {CYAN}{BOLD}{l.get('id','?')}{RESET}  {WHITE}{l.get('tool_name','?')}{RESET}  {DIM_W}[{l.get('agent','?')}]{RESET}")
+            print(f"       {DIM_W}{l.get('result_summary','')}{RESET}  {verified}")
+            if l.get("image_sha256"):
+                print(f"       {DIM_W}sha256: {l['image_sha256'][:48]}…{RESET}")
+            _blank()
+
+    sc = report.get("self_corrections_applied", 0)
+    print(f"  {DIM_W}{'━' * 54}{RESET}")
+    print(f"  {CYAN}⟳ {sc} self-correction(s) applied{RESET}  ·  {DIM_W}{len(msgs)} agent messages  ·  {len(logs)} tool calls{RESET}")
+    _blank()
+
+
 async def do_analyze(image_path: str, case_id: str | None, output: str):
     from backend.docker_client import get_docker_client
     from backend.agents.timeline_agent import TimelineAgent
@@ -532,9 +603,33 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         _print_finding_live(f, 0)
 
     # ── Verifier Agent ──────────────────────────────────────────────────────────
+    # ── Self-correction: timeline found executables but persistence found nothing ─
+    all_logs = list(tl_logs) + list(mem_logs) + list(per_logs)
+    self_corrections = 0
+    timeline_has_executables = any(
+        ".exe" in f.description.lower() or ".dll" in f.description.lower()
+        for f in tl_findings
+    )
+    if timeline_has_executables and len(per_findings) == 0:
+        _blank()
+        print(f"  {YELLOW}⟳  self-correcting:{RESET}  {DIM_W}timeline found executables but persistence returned zero — re-running{RESET}")
+        try:
+            per_findings2, per_logs2 = await PersistenceAgent(docker_client).run(image_path)
+            if len(per_findings2) > len(per_findings):
+                per_findings = per_findings2
+                all_logs.extend(per_logs2)
+                self_corrections += 1
+                print(f"  {GREEN}✓  re-run found {len(per_findings2)} indicator(s){RESET}")
+                for f in per_findings2:
+                    _print_finding_live(f, 0)
+            else:
+                print(f"  {DIM_W}re-run confirmed: zero persistence indicators — discrepancy noted for Verifier{RESET}")
+        except Exception:
+            pass
+
+    # ── Verifier Agent ──────────────────────────────────────────────────────────
     _blank()
     _agent_header(PURPLE, "4", "Verifier Agent")
-    all_logs = list(tl_logs) + list(mem_logs) + list(per_logs)
     try:
         verified, contradictions, ver_logs = await VerifierAgent().run(
             tl_findings, mem_findings, per_findings, all_logs
@@ -542,6 +637,13 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     except Exception:
         verified, contradictions, ver_logs = tl_findings + mem_findings + per_findings, [], []
     all_logs.extend(ver_logs)
+
+    verifier_corrections = sum(
+        1 for f in verified
+        if "corrected" in f.description.lower() or "reclassified" in f.description.lower()
+    )
+    self_corrections += verifier_corrections
+
     _agent_done(PURPLE, "4", "Verifier Agent", len(contradictions), 0)
     if contradictions:
         for f in contradictions:
@@ -562,7 +664,8 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
         started_at=start, completed_at=datetime.now(UTC),
         findings=all_final, contradictions_detected=len(contradictions),
         contradictions_resolved=len([c for c in contradictions if c.confidence != "LOW"]),
-        execution_log=all_logs, evidence_integrity_verified=evidence_ok,
+        execution_log=all_logs, self_corrections_applied=self_corrections,
+        evidence_integrity_verified=evidence_ok,
     )
     async with aiosqlite.connect(settings.db_path) as db:
         await init_db(db)
@@ -588,6 +691,7 @@ async def do_analyze(image_path: str, case_id: str | None, output: str):
     if critical: parts.append(f"{RED}{BOLD}{critical} critical{RESET}")
     if high:     parts.append(f"{ORANGE}{high} high{RESET}")
     if contradictions: parts.append(f"{YELLOW}⚡ {len(contradictions)} contradiction(s){RESET}")
+    if self_corrections: parts.append(f"{CYAN}⟳ {self_corrections} self-correction(s){RESET}")
     if not all_final: parts.append(f"{DIM_W}no findings{RESET}")
     parts.append(f"{DIM_W}dashboard: http://localhost:5173{RESET}")
     print(f"  {'  ·  '.join(parts)}")
@@ -613,6 +717,10 @@ HELP_TEXT = f"""
     {DIM_W}Display full report (supports ID prefix or case name){RESET}
     {DIM_W}· {ITALIC}report abc12345{RESET}
 
+  {CYAN}logs{RESET} {DIM_W}<id>{RESET}
+    {DIM_W}Show full agent-to-agent message trace + tool execution log{RESET}
+    {DIM_W}· {ITALIC}logs abc12345{RESET}
+
   {CYAN}status{RESET}
     {DIM_W}Show system readiness — Docker, API keys, case data{RESET}
 
@@ -633,7 +741,7 @@ def parse_line(line: str) -> tuple[str, list[str]]:
 async def repl():
     print_banner()
 
-    commands = ["analyze", "list", "report", "status", "help", "clear", "exit", "quit"]
+    commands = ["analyze", "list", "report", "logs", "status", "help", "clear", "exit", "quit"]
     readline.set_completer(lambda t, s: ([c for c in commands if c.startswith(t)] + [None])[s])
     readline.parse_and_bind("tab: complete")
 
@@ -677,6 +785,12 @@ async def repl():
                 else:
                     await do_report(args[0])
 
+            elif cmd == "logs":
+                if not args:
+                    print(f"\n  {RED}✗{RESET}  Usage: {CYAN}logs <investigation_id>{RESET}\n")
+                else:
+                    await do_logs(args[0])
+
             elif cmd == "analyze":
                 if not args:
                     print(f"\n  {RED}✗{RESET}  Usage: {CYAN}analyze <image_path> [--case-id <id>]{RESET}\n")
@@ -717,12 +831,15 @@ def main():
         sub.add_parser("list")
         p_r = sub.add_parser("report")
         p_r.add_argument("investigation_id")
+        p_l = sub.add_parser("logs")
+        p_l.add_argument("investigation_id")
         sub.add_parser("status")
 
         args = parser.parse_args()
         if   args.command == "analyze": asyncio.run(do_analyze(args.image_path, args.case_id, args.output))
         elif args.command == "list":    asyncio.run(do_list())
         elif args.command == "report":  asyncio.run(do_report(args.investigation_id))
+        elif args.command == "logs":    asyncio.run(do_logs(args.investigation_id))
         elif args.command == "status":  asyncio.run(do_status())
         else: parser.print_help()
     else:

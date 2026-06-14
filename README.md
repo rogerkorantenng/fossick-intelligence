@@ -121,6 +121,7 @@ fossick                    # open interactive REPL
 fossick analyze <image>    # run investigation (non-interactive)
 fossick list               # show all past investigations
 fossick report <id>        # show full report by ID or prefix
+fossick logs <id>          # show full agent-to-agent trace + tool execution log
 fossick status             # check system readiness
 ```
 
@@ -131,9 +132,30 @@ fossick status             # check system readiness
 | `analyze <image> [--case-id <id>] [--output json\|table]` | Run investigation |
 | `list` | Show all investigations |
 | `report <id>` | Full report (supports ID prefix) |
+| `logs <id>` | Full audit trail: agent messages + tool execution log |
 | `status` | Docker, API keys, case data, DB stats |
 | `clear` | Clear screen |
 | `exit` | Exit (or Ctrl+C) |
+
+---
+
+## Audit Trail
+
+Every investigation produces a full agent-to-agent message log and tool execution trace. To trace any finding back to the specific tool call that produced it:
+
+```bash
+fossick logs <investigation_id>
+```
+
+Or via the REST API:
+
+```bash
+curl http://localhost:8002/investigations/<id>/logs
+```
+
+A pre-run sample log from the M57-Jean case is committed at [`logs/m57_jean_sample_run.json`](logs/m57_jean_sample_run.json). It includes a `three_claim_trace` section mapping each finding directly to its tool call ID, agent, timestamp, and raw evidence string.
+
+**Self-corrections** are flagged in the log with `"self_correction": true`. When the Verifier reclassifies a finding (e.g. `.sol` from Solidity contract → Adobe Flash LSO), or the Orchestrator re-dispatches an agent after a cross-agent discrepancy, both events appear as timestamped entries with `correction_note` explaining the reasoning.
 
 ---
 

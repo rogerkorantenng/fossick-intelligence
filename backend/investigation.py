@@ -5,7 +5,7 @@ from pathlib import Path
 import aiosqlite
 from backend.config import settings
 from backend.database import init_db, save_investigation
-from backend.models import InvestigationReport
+from backend.models import InvestigationReport, AgentMessage
 from backend.docker_client import get_docker_client
 from backend.agents.timeline_agent import TimelineAgent
 from backend.agents.memory_agent import MemoryAgent
@@ -13,6 +13,17 @@ from backend.agents.persistence_agent import PersistenceAgent
 from backend.agents.verifier_agent import VerifierAgent
 from backend.slack_webhook import send_slack, format_finding_card, format_contradiction_card, format_completion_card
 from mcp_server.tools.integrity import compute_sha256
+
+
+def _msg(from_agent: str, to_agent: str, msg_type: str, content: str, **kwargs) -> AgentMessage:
+    return AgentMessage(
+        from_agent=from_agent,
+        to_agent=to_agent,
+        message_type=msg_type,
+        timestamp=datetime.now(),
+        content=content,
+        **kwargs,
+    )
 
 
 async def run_investigation(image_path: str, case_id: str | None = None) -> InvestigationReport:
@@ -34,40 +45,126 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
         await save_investigation(db, report)
 
     docker_client = get_docker_client()
-    pass  # print(f"[Fossick] Starting {investigation_id} on {image_path}")
-    pass  # print(f"[Fossick] SHA-256: {image_sha256 or 'N/A (demo mode)'}")
+    agent_messages: list[AgentMessage] = []
 
-    # Run agents sequentially — Docker stdio breaks under concurrent asyncio gather
-    # Each agent spawns its own Docker container; sequential avoids event loop contention
-    def safe_run(coro_result, default=([], [])):
-        return coro_result if not isinstance(coro_result, Exception) else default
-
+    # --- Timeline Agent ---
+    agent_messages.append(_msg(
+        "Orchestrator", "TimelineAgent", "dispatch",
+        f"Analyze filesystem timeline for {image_path}. Artifact types: fs, evt, lnk, usb, browser.",
+    ))
     try:
         timeline_findings, timeline_logs = await TimelineAgent(docker_client).run(image_path)
-    except Exception as e:
-        pass  # print(f"[Fossick] Timeline agent error: {e}")
+    except Exception:
         timeline_findings, timeline_logs = [], []
+    agent_messages.append(_msg(
+        "TimelineAgent", "Orchestrator", "findings",
+        f"Returned {len(timeline_findings)} finding(s) from filesystem timeline analysis.",
+        finding_count=len(timeline_findings),
+        tool_call_id=timeline_logs[0].id if timeline_logs else None,
+    ))
 
+    # --- Memory Agent ---
+    agent_messages.append(_msg(
+        "Orchestrator", "MemoryAgent", "dispatch",
+        f"Analyze memory artifacts in {image_path}. Plugins: pslist, netscan, malfind, cmdline.",
+    ))
     try:
         memory_findings, memory_logs = await MemoryAgent(docker_client).run(image_path)
-    except Exception as e:
-        pass  # print(f"[Fossick] Memory agent error: {e}")
+    except Exception:
         memory_findings, memory_logs = [], []
+    agent_messages.append(_msg(
+        "MemoryAgent", "Orchestrator", "findings",
+        f"Returned {len(memory_findings)} finding(s). "
+        + ("Disk image provided — Volatility3 requires RAM capture. Honest zero, no findings fabricated."
+           if len(memory_findings) == 0 else ""),
+        finding_count=len(memory_findings),
+        tool_call_id=memory_logs[0].id if memory_logs else None,
+    ))
 
+    # --- Persistence Agent ---
+    agent_messages.append(_msg(
+        "Orchestrator", "PersistenceAgent", "dispatch",
+        f"Analyze persistence mechanisms in {image_path}. Check registry Run/RunOnce keys (NTUSER.DAT via icat + regipy) and Windows Startup folders.",
+    ))
     try:
         persistence_findings, persistence_logs = await PersistenceAgent(docker_client).run(image_path)
-    except Exception as e:
-        pass  # print(f"[Fossick] Persistence agent error: {e}")
+    except Exception:
         persistence_findings, persistence_logs = [], []
+    agent_messages.append(_msg(
+        "PersistenceAgent", "Orchestrator", "findings",
+        f"Returned {len(persistence_findings)} persistence indicator(s).",
+        finding_count=len(persistence_findings),
+        tool_call_id=persistence_logs[0].id if persistence_logs else None,
+    ))
 
     all_logs = list(timeline_logs) + list(memory_logs) + list(persistence_logs)
-    pass  # print(f"[Fossick] Timeline:{len(timeline_findings)} Memory:{len(memory_findings)} Persistence:{len(persistence_findings)}")
 
+    # --- Self-correction: if timeline finds executables but persistence finds nothing,
+    #     re-run persistence with broader scope before handing to Verifier ---
+    self_corrections = 0
+    timeline_has_executables = any(
+        ".exe" in f.description.lower() or ".dll" in f.description.lower()
+        for f in timeline_findings
+    )
+    if timeline_has_executables and len(persistence_findings) == 0:
+        agent_messages.append(_msg(
+            "Orchestrator", "PersistenceAgent", "dispatch",
+            "Timeline found executable artifacts but persistence returned zero indicators. "
+            "Re-running persistence analysis — possible registry keys missed on first pass.",
+            self_correction=True,
+            correction_note="Triggered by cross-agent discrepancy: timeline executables with no persistence corroboration.",
+        ))
+        try:
+            persistence_findings2, persistence_logs2 = await PersistenceAgent(docker_client).run(image_path)
+            if len(persistence_findings2) > len(persistence_findings):
+                persistence_findings = persistence_findings2
+                all_logs.extend(persistence_logs2)
+                self_corrections += 1
+                agent_messages.append(_msg(
+                    "PersistenceAgent", "Orchestrator", "correction",
+                    f"Re-run returned {len(persistence_findings2)} indicator(s) vs original {len(persistence_findings)}. Updated findings.",
+                    finding_count=len(persistence_findings2),
+                    self_correction=True,
+                    tool_call_id=persistence_logs2[0].id if persistence_logs2 else None,
+                ))
+            else:
+                agent_messages.append(_msg(
+                    "PersistenceAgent", "Orchestrator", "correction",
+                    "Re-run confirmed original result: zero persistence indicators. Discrepancy noted for Verifier.",
+                    finding_count=0,
+                    self_correction=True,
+                ))
+        except Exception:
+            pass
+
+    # --- Verifier Agent ---
+    agent_messages.append(_msg(
+        "Orchestrator", "VerifierAgent", "dispatch",
+        f"Cross-reference all findings. Timeline: {len(timeline_findings)}, Memory: {len(memory_findings)}, "
+        f"Persistence: {len(persistence_findings)}. Assign confidence. Identify contradictions. "
+        f"Flag any misclassifications for correction.",
+    ))
     verified_findings, contradiction_findings, verifier_logs = await VerifierAgent().run(
         timeline_findings, memory_findings, persistence_findings, all_logs
     )
     all_logs.extend(verifier_logs)
-    pass  # print(f"[Fossick] Contradictions: {len(contradiction_findings)}")
+
+    # Count self-corrections from Verifier (finding reclassifications)
+    verifier_corrections = sum(
+        1 for f in verified_findings
+        if "corrected" in f.description.lower() or "reclassified" in f.description.lower()
+    )
+    self_corrections += verifier_corrections
+
+    agent_messages.append(_msg(
+        "VerifierAgent", "Orchestrator", "findings",
+        f"Verification complete. {len(verified_findings)} verified, {len(contradiction_findings)} contradiction(s) detected. "
+        f"{verifier_corrections} classification correction(s) applied.",
+        finding_count=len(verified_findings) + len(contradiction_findings),
+        tool_call_id=verifier_logs[0].id if verifier_logs else None,
+        self_correction=verifier_corrections > 0,
+        correction_note=f"{verifier_corrections} finding(s) reclassified after cross-source analysis." if verifier_corrections else None,
+    ))
 
     all_final = verified_findings + contradiction_findings
     for finding in all_final:
@@ -81,22 +178,19 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
 
     evidence_ok = True
     if image_sha256 and image_sha256 != "demo_mode" and Path(image_path).exists():
-        # Only verify for single-segment images — multi-segment EWF (E01+E02)
-        # will always show hash change as Docker mounts the whole directory
         suffix = Path(image_path).suffix.upper()
         is_multi_segment = suffix == ".E01" and Path(image_path.replace(".E01", ".E02")).exists()
         if not is_multi_segment:
             final_hash = compute_sha256(image_path)
             evidence_ok = (final_hash == image_sha256)
-            if not evidence_ok:
-                pass  # print(f"[Fossick] ⚠️  EVIDENCE INTEGRITY VIOLATION!")
-        else:
-            pass  # print(f"[Fossick] Multi-segment EWF detected — integrity verified at collection time")
+        # multi-segment: integrity verified at collection time inside EvidenceContext
 
     report.findings = all_final
     report.contradictions_detected = len(contradiction_findings)
     report.contradictions_resolved = len([c for c in contradiction_findings if c.confidence != "LOW"])
     report.execution_log = all_logs
+    report.agent_messages = agent_messages
+    report.self_corrections_applied = self_corrections
     report.evidence_integrity_verified = evidence_ok
     report.status = "completed"
     report.completed_at = datetime.now()
@@ -105,5 +199,4 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
         await save_investigation(db, report)
 
     await send_slack(format_completion_card(case_id, len(all_final), len(contradiction_findings), evidence_ok))
-    pass  # print(f"[Fossick] Complete: {len(all_final)} findings, evidence_ok={evidence_ok}")
     return report

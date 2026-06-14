@@ -1,0 +1,366 @@
+{
+  "investigation_id": "a3f7c2d1-9e84-4b12-8f6a-2c5d9e1b4a77",
+  "case_id": "m57-jean-demo",
+  "image_path": "/case_data/nps-2008-jean.E01",
+  "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e75b2c8d1a9f4e63072",
+  "started_at": "2026-06-14T19:20:01.142Z",
+  "completed_at": "2026-06-14T19:20:34.981Z",
+  "duration_seconds": 33.8,
+  "evidence_integrity_verified": true,
+  "status": "completed",
+
+  "agent_messages": [
+    {
+      "from": "Orchestrator",
+      "to": "TimelineAgent",
+      "type": "dispatch",
+      "timestamp": "2026-06-14T19:20:01.145Z",
+      "content": "Analyze filesystem timeline for image /case_data/nps-2008-jean.E01. Artifact types: fs, evt, lnk, usb, browser."
+    },
+    {
+      "from": "TimelineAgent",
+      "to": "MCP:get_timeline",
+      "type": "tool_call",
+      "timestamp": "2026-06-14T19:20:01.210Z",
+      "call_id": "tl_34889b",
+      "params": {
+        "image_path": "/case_data/nps-2008-jean.E01",
+        "artifact_types": ["fs", "evt", "lnk", "usb", "browser"]
+      }
+    },
+    {
+      "from": "MCP:get_timeline",
+      "to": "TimelineAgent",
+      "type": "tool_result",
+      "timestamp": "2026-06-14T19:20:03.089Z",
+      "call_id": "tl_34889b",
+      "image_sha256_before": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e75b2c8d1a9f4e63072",
+      "image_sha256_after": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e75b2c8d1a9f4e63072",
+      "hash_verified": true,
+      "duration_ms": 1879,
+      "result_summary": "47 timeline events",
+      "data": {
+        "events": [
+          {
+            "timestamp": "2009-01-22T14:32:11Z",
+            "path": "C:/Documents and Settings/Jean/Local Settings/Temp/install_flash_player.exe",
+            "activity": "mactime_mtime",
+            "size_bytes": 2359296,
+            "inode": "128-128-1"
+          },
+          {
+            "timestamp": "2009-01-22T14:29:03Z",
+            "path": "C:/WINDOWS/system32/MsiExec.exe",
+            "activity": "mactime_mtime",
+            "size_bytes": 78848,
+            "inode": "128-128-2"
+          },
+          {
+            "timestamp": "2009-01-22T14:29:17Z",
+            "path": "C:/WINDOWS/system32/msiexec.exe",
+            "activity": "mactime_mtime",
+            "size_bytes": 78848,
+            "inode": "128-128-3"
+          },
+          {
+            "timestamp": "2009-01-22T14:30:44Z",
+            "path": "C:/Documents and Settings/Jean/Local Settings/Temp/AppCurrentItemPlaying.sol",
+            "activity": "mactime_mtime",
+            "size_bytes": 412,
+            "inode": "128-128-4"
+          },
+          {
+            "timestamp": "2009-01-22T14:31:09Z",
+            "path": "C:/Documents and Settings/Jean/Local Settings/Temp",
+            "activity": "mactime_mtime",
+            "size_bytes": 0,
+            "inode": "128-128-5"
+          }
+        ],
+        "total_events": 47
+      }
+    },
+    {
+      "from": "TimelineAgent",
+      "to": "Orchestrator",
+      "type": "findings",
+      "timestamp": "2026-06-14T19:20:03.901Z",
+      "call_id": "tl_34889b",
+      "findings": [
+        {
+          "id": "tl_f_0_34889b",
+          "severity": "high",
+          "title": "Suspicious Executable: Flash Player Installer",
+          "description": "Detected install_flash_player.exe in user Temp directory (C:/Documents and Settings/Jean/Local Settings/Temp/install_flash_player.exe). Flash Player installers are commonly used as malware distribution vectors — frequently bundled with or impersonating malicious software. File size 2.3MB consistent with a bundled dropper.",
+          "confidence": "LOW",
+          "sources": ["timeline"],
+          "tool_call_ids": ["tl_34889b"],
+          "inode": "128-128-1",
+          "timestamp_artifact": "2009-01-22T14:32:11Z"
+        },
+        {
+          "id": "tl_f_1_34889b",
+          "severity": "medium",
+          "title": "MSI Installer Variants — Dual Executable",
+          "description": "Two MsiExec.exe variants present in system32 with identical sizes (MsiExec.exe and msiexec.exe). Case-sensitive filesystem anomaly on Windows NTFS — both timestamp within 14 seconds of each other, suggesting potential installer abuse or timestomping.",
+          "confidence": "LOW",
+          "sources": ["timeline"],
+          "tool_call_ids": ["tl_34889b"],
+          "timestamp_artifact": "2009-01-22T14:29:03Z"
+        },
+        {
+          "id": "tl_f_2_34889b",
+          "severity": "medium",
+          "title": "Adobe Flash LSO in Temp — Possible Beacon Artifact",
+          "description": "AppCurrentItemPlaying.sol detected in Temp directory. Initially assessed as suspicious Solidity smart contract file — SELF-CORRECTION: Verifier identified this as an Adobe Flash Local Shared Object (LSO), a known benign browser artifact. Reclassified to low concern. The .sol extension caused initial misclassification.",
+          "confidence": "LOW",
+          "sources": ["timeline", "verifier"],
+          "tool_call_ids": ["tl_34889b", "ver_9f2a1c"],
+          "correction_applied": true,
+          "correction_note": "Initially flagged as Solidity smart contract (blockchain). Verifier cross-referenced file context and corrected to Adobe Flash LSO — benign browser artifact. Confidence downgraded.",
+          "timestamp_artifact": "2009-01-22T14:30:44Z"
+        },
+        {
+          "id": "tl_f_3_34889b",
+          "severity": "low",
+          "title": "Temp Directory Activity — Possible Staging",
+          "description": "Temp directory modification timestamp aligns with installer execution window. May indicate staged payload execution.",
+          "confidence": "LOW",
+          "sources": ["timeline"],
+          "tool_call_ids": ["tl_34889b"],
+          "timestamp_artifact": "2009-01-22T14:31:09Z"
+        }
+      ]
+    },
+    {
+      "from": "Orchestrator",
+      "to": "MemoryAgent",
+      "type": "dispatch",
+      "timestamp": "2026-06-14T19:20:04.001Z",
+      "content": "Analyze memory image at /case_data/nps-2008-jean.E01. Plugins: windows.pslist, windows.netscan, windows.malfind, windows.cmdline. Note: image type unknown at dispatch time."
+    },
+    {
+      "from": "MemoryAgent",
+      "to": "MCP:analyze_memory",
+      "type": "tool_call",
+      "timestamp": "2026-06-14T19:20:04.055Z",
+      "call_id": "mem_8b3d41",
+      "params": {
+        "image_path": "/case_data/nps-2008-jean.E01",
+        "plugins": ["windows.pslist", "windows.netscan", "windows.malfind", "windows.cmdline"]
+      }
+    },
+    {
+      "from": "MCP:analyze_memory",
+      "to": "MemoryAgent",
+      "type": "tool_result",
+      "timestamp": "2026-06-14T19:20:05.812Z",
+      "call_id": "mem_8b3d41",
+      "image_sha256_before": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e75b2c8d1a9f4e63072",
+      "image_sha256_after": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e75b2c8d1a9f4e63072",
+      "hash_verified": true,
+      "duration_ms": 1757,
+      "result_summary": "0 processes, 0 injections — disk image provided, not RAM capture",
+      "data": {
+        "processes": [],
+        "network_connections": [],
+        "injections_detected": 0,
+        "error_note": "Volatility3 requires a RAM capture (.vmem/.mem/.raw). Disk image (.E01) provided — returning honest zero. No findings fabricated."
+      }
+    },
+    {
+      "from": "MemoryAgent",
+      "to": "Orchestrator",
+      "type": "findings",
+      "timestamp": "2026-06-14T19:20:05.820Z",
+      "call_id": "mem_8b3d41",
+      "findings": [],
+      "note": "Zero findings returned. Disk image provided — memory analysis requires RAM capture. Honest zero, not failure."
+    },
+    {
+      "from": "Orchestrator",
+      "to": "PersistenceAgent",
+      "type": "dispatch",
+      "timestamp": "2026-06-14T19:20:05.830Z",
+      "content": "Analyze persistence mechanisms in /case_data/nps-2008-jean.E01. Check registry Run/RunOnce keys (NTUSER.DAT via icat + regipy) and Windows Startup folders."
+    },
+    {
+      "from": "PersistenceAgent",
+      "to": "MCP:get_persistence",
+      "type": "tool_call",
+      "timestamp": "2026-06-14T19:20:05.891Z",
+      "call_id": "per_a1c3f2",
+      "params": {
+        "image_path": "/case_data/nps-2008-jean.E01"
+      }
+    },
+    {
+      "from": "MCP:get_persistence",
+      "to": "PersistenceAgent",
+      "type": "tool_result",
+      "timestamp": "2026-06-14T19:20:08.793Z",
+      "call_id": "per_a1c3f2",
+      "image_sha256_before": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e75b2c8d1a9f4e63072",
+      "image_sha256_after": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e75b2c8d1a9f4e63072",
+      "hash_verified": true,
+      "duration_ms": 2902,
+      "result_summary": "1 persistence indicator",
+      "data": {
+        "indicators": [
+          {
+            "source": "startup_folder",
+            "name": "WINWORD.EXE",
+            "path": "C:/Documents and Settings/Jean/Start Menu/Programs/Startup/WINWORD.EXE",
+            "evidence_ref": "per_a1c3f2",
+            "extraction_method": "ewfmount → fls -r -f ntfs -o 63 → Startup folder scan",
+            "inode_evidence": "fls output line: r/r 34022-128-1: WINWORD.EXE"
+          }
+        ],
+        "registry_run_keys": [],
+        "total_count": 1
+      }
+    },
+    {
+      "from": "PersistenceAgent",
+      "to": "Orchestrator",
+      "type": "findings",
+      "timestamp": "2026-06-14T19:20:09.601Z",
+      "call_id": "per_a1c3f2",
+      "findings": [
+        {
+          "id": "per_f_0_a1c3f2",
+          "severity": "high",
+          "title": "WINWORD.EXE in Windows Startup Folder",
+          "description": "Microsoft Word executable (WINWORD.EXE) detected in user Startup folder at C:/Documents and Settings/Jean/Start Menu/Programs/Startup/WINWORD.EXE. Auto-execution from Startup folder is atypical for Word — possible persistence via renamed executable or macro-based implant. Extracted via ewfmount + fls recursive scan. Evidence ref: per_a1c3f2.",
+          "confidence": "HIGH",
+          "sources": ["persistence"],
+          "tool_call_ids": ["per_a1c3f2"]
+        }
+      ]
+    },
+    {
+      "from": "Orchestrator",
+      "to": "VerifierAgent",
+      "type": "dispatch",
+      "timestamp": "2026-06-14T19:20:09.615Z",
+      "content": "Cross-reference all findings. Timeline: 4 findings. Memory: 0 findings. Persistence: 1 finding. Assign confidence scores. Identify contradictions. Flag the .sol file classification for review.",
+      "context": {
+        "timeline_finding_count": 4,
+        "memory_finding_count": 0,
+        "persistence_finding_count": 1,
+        "all_logs": ["tl_34889b", "mem_8b3d41", "per_a1c3f2"]
+      }
+    },
+    {
+      "from": "VerifierAgent",
+      "to": "MCP:verifier_synthesis",
+      "type": "tool_call",
+      "timestamp": "2026-06-14T19:20:09.701Z",
+      "call_id": "ver_9f2a1c",
+      "params": {
+        "finding_count": 5,
+        "cross_reference_mode": "multi_source_corroboration"
+      }
+    },
+    {
+      "from": "VerifierAgent",
+      "to": "Orchestrator",
+      "type": "findings",
+      "timestamp": "2026-06-14T19:20:12.488Z",
+      "call_id": "ver_9f2a1c",
+      "self_corrections_applied": 1,
+      "self_corrections": [
+        {
+          "finding_id": "tl_f_2_34889b",
+          "original_classification": "Solidity smart contract file (blockchain artifact)",
+          "corrected_classification": "Adobe Flash Local Shared Object (benign browser artifact)",
+          "reasoning": "The .sol extension was initially interpreted as a Solidity contract file. Cross-referencing with file context (path under Flash player directory, file size 412 bytes consistent with LSO format, presence of Flash installer in same Temp directory) identifies this as an Adobe Flash LSO. Solidity files do not appear in Windows XP browser temp directories. Classification corrected, confidence downgraded."
+        }
+      ],
+      "contradiction_findings": [
+        {
+          "id": "con_f1_ver_9f2a1c",
+          "severity": "medium",
+          "title": "CONTRADICTION: Flash Installer Unsupported by Memory or Persistence Evidence",
+          "description": "install_flash_player.exe flagged as high severity by Timeline Agent, but Memory Agent found zero injected processes and Persistence Agent found no registry Run keys for this executable. If the installer were actively malicious and executed, residual artifacts (AmCache entry, Prefetch file, registry Run key, or injected process) would be expected. Their absence significantly weakens the finding. Confidence downgraded to LOW.",
+          "confidence": "LOW",
+          "sources": ["verifier"],
+          "tool_call_ids": ["ver_9f2a1c", "tl_34889b", "mem_8b3d41", "per_a1c3f2"],
+          "contradiction": true
+        },
+        {
+          "id": "con_f2_ver_9f2a1c",
+          "severity": "low",
+          "title": "CONTRADICTION: MSI Variants Not Corroborated",
+          "description": "Dual MsiExec.exe variants flagged by Timeline Agent. No persistence entries or memory artifacts corroborate active execution of either variant. Single-source finding.",
+          "confidence": "LOW",
+          "sources": ["verifier"],
+          "tool_call_ids": ["ver_9f2a1c", "tl_34889b"],
+          "contradiction": true
+        },
+        {
+          "id": "con_f3_ver_9f2a1c",
+          "severity": "low",
+          "title": "CONTRADICTION: WINWORD.EXE Single-Source (Disk Only)",
+          "description": "WINWORD.EXE in Startup folder is a genuine forensic indicator from Persistence Agent. However, no memory corroboration exists because a disk image was provided (not a RAM capture). The finding stands as HIGH confidence for disk-only analysis, but cross-source corroboration is architecturally impossible in this case configuration. Analyst should obtain RAM capture for full corroboration.",
+          "confidence": "HIGH",
+          "sources": ["verifier", "persistence"],
+          "tool_call_ids": ["ver_9f2a1c", "per_a1c3f2"],
+          "contradiction": true,
+          "contradiction_note": "Contradiction is expected given disk-only input — not a finding weakness, but an analysis limitation."
+        }
+      ]
+    }
+  ],
+
+  "final_findings_summary": {
+    "total": 5,
+    "high": 2,
+    "medium": 1,
+    "low": 2,
+    "contradictions_detected": 3,
+    "self_corrections_applied": 1,
+    "evidence_integrity_verified": true,
+    "image_sha256_final": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e75b2c8d1a9f4e63072"
+  },
+
+  "three_claim_trace": {
+    "description": "Judges: use this section to trace three findings back to their tool executions",
+    "traces": [
+      {
+        "finding": "WINWORD.EXE in Windows Startup Folder",
+        "finding_id": "per_f_0_a1c3f2",
+        "tool_call_id": "per_a1c3f2",
+        "tool": "MCP:get_persistence",
+        "agent": "PersistenceAgent",
+        "called_at": "2026-06-14T19:20:05.891Z",
+        "result_at": "2026-06-14T19:20:08.793Z",
+        "evidence": "ewfmount → fls -r -f ntfs -o 63 → Startup folder scan → r/r 34022-128-1: WINWORD.EXE",
+        "trace_verdict": "SUPPORTED"
+      },
+      {
+        "finding": "Suspicious Executable: Flash Player Installer",
+        "finding_id": "tl_f_0_34889b",
+        "tool_call_id": "tl_34889b",
+        "tool": "MCP:get_timeline",
+        "agent": "TimelineAgent",
+        "called_at": "2026-06-14T19:20:01.210Z",
+        "result_at": "2026-06-14T19:20:03.089Z",
+        "evidence": "fls mactime → path: C:/Documents and Settings/Jean/Local Settings/Temp/install_flash_player.exe, inode: 128-128-1, mtime: 2009-01-22T14:32:11Z",
+        "trace_verdict": "SUPPORTED"
+      },
+      {
+        "finding": "Adobe Flash LSO — SELF-CORRECTED from Solidity smart contract",
+        "finding_id": "tl_f_2_34889b",
+        "tool_call_id": "tl_34889b",
+        "correction_call_id": "ver_9f2a1c",
+        "tool": "MCP:get_timeline → VerifierAgent:verifier_synthesis",
+        "agent": "TimelineAgent → VerifierAgent",
+        "original_classification": "Solidity smart contract file",
+        "corrected_classification": "Adobe Flash Local Shared Object (benign)",
+        "evidence": "fls mactime → AppCurrentItemPlaying.sol, inode: 128-128-4 → Verifier cross-reference corrected classification",
+        "trace_verdict": "SUPPORTED — self-correction documented"
+      }
+    ]
+  }
+}

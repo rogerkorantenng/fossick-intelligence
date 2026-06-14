@@ -35,6 +35,18 @@ class ToolCallLog(BaseModel):
     spoliation_detected: bool = False
 
 
+class AgentMessage(BaseModel):
+    from_agent: str
+    to_agent: str
+    message_type: Literal["dispatch", "findings", "correction", "contradiction"]
+    timestamp: datetime
+    content: str
+    finding_count: int = 0
+    tool_call_id: Optional[str] = None
+    self_correction: bool = False
+    correction_note: Optional[str] = None
+
+
 class InvestigationReport(BaseModel):
     id: str
     case_id: str
@@ -47,5 +59,7 @@ class InvestigationReport(BaseModel):
     contradictions_detected: int = 0
     contradictions_resolved: int = 0
     execution_log: list[ToolCallLog] = Field(default_factory=list)
+    agent_messages: list[AgentMessage] = Field(default_factory=list)
+    self_corrections_applied: int = 0
     evidence_integrity_verified: bool = False
     error: Optional[str] = None

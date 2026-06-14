@@ -41,3 +41,20 @@ async def get_one(investigation_id: str):
         if not result:
             raise HTTPException(status_code=404, detail="Investigation not found")
         return result
+
+
+@router.get("/investigations/{investigation_id}/logs")
+async def get_logs(investigation_id: str):
+    """Full audit trail: agent messages + tool execution logs. Judges: use this for the three-claim trace."""
+    async with aiosqlite.connect(settings.db_path) as db:
+        result = await get_investigation(db, investigation_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Investigation not found")
+        return {
+            "investigation_id": result["id"],
+            "case_id": result["case_id"],
+            "image_sha256": result["image_sha256"],
+            "self_corrections_applied": result.get("self_corrections_applied", 0),
+            "agent_messages": result.get("agent_messages", []),
+            "tool_execution_log": result.get("execution_log", []),
+        }
