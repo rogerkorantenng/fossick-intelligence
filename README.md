@@ -6,6 +6,33 @@ Built for the **SANS Find Evil! Hackathon** · by Roger
 
 ---
 
+## Live Demo
+
+**No local setup required.** Everything runs on a pre-loaded EC2 instance with the M57-Jean disk image already in place.
+
+| | URL |
+|---|---|
+| **Dashboard** | https://d384vqo55206ly.cloudfront.net |
+| **Live Terminal** | https://d384vqo55206ly.cloudfront.net/terminal/ |
+
+Open the terminal URL in your browser. You will land in the Fossick REPL. Run:
+
+```
+analyze
+```
+
+That's it — no arguments needed. It auto-runs the M57-Jean demo case (nps-2008-jean.E01 + E02, ~2.3 GB, loaded from Digital Corpora). The four agents will stream findings to your terminal in real time. The full investigation takes around 60–90 seconds.
+
+To view the audit trail after the run completes, copy the investigation ID printed at the end and run:
+
+```
+logs <investigation-id>
+```
+
+The React dashboard at the URL above updates live as findings arrive.
+
+---
+
 ## The Problem
 
 CrowdStrike documented AI-driven attack breakout times as low as seven minutes. Meanwhile, a DFIR analyst manually typing Volatility flags and correlating findings across four tools takes forty minutes per alert — before making a single decision.
@@ -31,12 +58,14 @@ fossick ❯ analyze case_data/nps-2008-jean.E01 --case-id m57-demo
     │  bundled with or impersonated by malicious software.
     └─  confidence LOW  ·  sources: timeline  ·  ref: tl_34889b
 
-  [3]  Persistence Agent     1 finding(s)  2.9s
+  [3]  Persistence Agent     2 finding(s)  2.9s
 
-    ┌─ HIGH  WINWORD.EXE in Windows Startup Folder
-    │  Microsoft Word executable detected in Startup folder.
-    │  Auto-execution from Startup is atypical for Word — possible
-    │  persistence via renamed executable or macro-based implant.
+    ┌─ LOW  Legacy Startup Entry: MSMSGS
+    │  Windows Messenger in HKCU Run key. Expected on 2008 XP system.
+    └─  confidence HIGH  ·  sources: persistence  ·  ref: per_a1c3f2
+
+    ┌─ LOW  Legacy Startup Entry: Aim6
+    │  AOL Instant Messenger in HKCU Run key. Expected on 2008 XP system.
     └─  confidence HIGH  ·  sources: persistence  ·  ref: per_a1c3f2
 
   [4]  Verifier Agent        3 contradiction(s)
@@ -307,8 +336,11 @@ fossick-intelligence/
 
 **Memory Agent findings:** 0 — correct, disk image provided not RAM capture
 
-**Persistence Agent findings:** 1 finding
-- `WINWORD.EXE` in Windows Startup folder — single-source finding (disk only); no timeline write event or memory process corroboration because no RAM capture was provided. Verifier correctly flags this as needing analyst follow-up.
+**Persistence Agent findings:** 2 findings
+- `MSMSGS` (Windows Messenger) in `HKCU\...\Run` — extracted from NTUSER.DAT via regipy
+- `Aim6` (AOL Instant Messenger) in `HKCU\...\Run` — extracted from NTUSER.DAT via regipy
+
+Both are low-severity legacy software entries. Verifier correctly classifies them as non-threatening given the 2008 Windows XP context. All four Startup folders on the image are empty of non-standard executables.
 
 **Verifier contradictions detected:** 3
 - Flash installer high severity unsupported by memory/persistence evidence
