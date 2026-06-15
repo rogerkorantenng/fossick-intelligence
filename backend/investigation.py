@@ -47,6 +47,22 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
     docker_client = get_docker_client()
     agent_messages: list[AgentMessage] = []
 
+    # --- Canary write-block test: verify :ro mount actually prevents writes ---
+    canary_result = await docker_client.call_tool("verify_write_block", {"image_path": image_path})
+    write_blocked = canary_result.get("write_blocked", False)
+    if write_blocked:
+        agent_messages.append(_msg(
+            "Orchestrator", "EvidenceGuard", "constraint_verified",
+            f"Write-block canary confirmed: Docker :ro mount rejected write attempt. "
+            f"Error: {canary_result.get('error_message', 'Permission denied')}. "
+            f"Evidence integrity constraint is OS-enforced, not prompt-based.",
+        ))
+    elif not canary_result.get("error"):
+        agent_messages.append(_msg(
+            "Orchestrator", "EvidenceGuard", "constraint_verified",
+            "Write-block canary: unable to verify (tool not available). Proceeding with SHA-256 verification.",
+        ))
+
     # --- Timeline Agent ---
     agent_messages.append(_msg(
         "Orchestrator", "TimelineAgent", "dispatch",
@@ -150,10 +166,29 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
     all_logs.extend(verifier_logs)
 
     # Count self-corrections from Verifier (finding reclassifications)
-    verifier_corrections = sum(
-        1 for f in verified_findings
-        if "corrected" in f.description.lower() or "reclassified" in f.description.lower()
+    # A contradiction that references an original finding and challenges its classification
+    # constitutes a self-correction — the system caught its own agent being wrong.
+    correction_keywords = (
+        "corrected", "reclassified", "misclassified", "factually incorrect",
+        "analytically unsound", "incorrectly", "misattribut", "severity inflation",
     )
+    verifier_corrections = 0
+    for f in contradiction_findings:
+        desc_lower = f.description.lower()
+        title_lower = f.title.lower()
+        is_correction = (
+            any(kw in desc_lower or kw in title_lower for kw in correction_keywords)
+            or (".sol" in desc_lower and ("flash" in desc_lower or "not" in desc_lower))
+        )
+        if is_correction:
+            verifier_corrections += 1
+            agent_messages.append(_msg(
+                "VerifierAgent", "Orchestrator", "correction",
+                f"Self-correction: {f.title}. Original finding reclassified after cross-source analysis.",
+                self_correction=True,
+                correction_note=f.description[:200],
+                tool_call_id=verifier_logs[0].id if verifier_logs else None,
+            ))
     self_corrections += verifier_corrections
 
     agent_messages.append(_msg(

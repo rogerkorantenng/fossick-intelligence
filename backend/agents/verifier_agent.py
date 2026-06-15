@@ -73,6 +73,7 @@ Return JSON:
             called_at=datetime.now(),
             params={"finding_count": len(all_findings)},
             result_summary=f"Verified {len(all_findings)} findings, {len(contradictions)} contradictions",
+            tokens_used=message.usage.input_tokens + message.usage.output_tokens,
         )
 
         verified = list(all_findings)

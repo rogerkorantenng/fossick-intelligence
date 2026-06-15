@@ -50,6 +50,7 @@ Return JSON array only:
             model="claude-haiku-4-5-20251001", max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
+        log.tokens_used = message.usage.input_tokens + message.usage.output_tokens
 
         findings = []
         try:

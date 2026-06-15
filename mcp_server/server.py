@@ -39,6 +39,11 @@ async def list_tools() -> list[types.Tool]:
                        "image_path": {"type": "string"},
                        "expected_sha256": {"type": "string"},
                    }, "required": ["image_path"]}),
+        types.Tool(name="verify_write_block",
+                   description="Canary test: attempt to write to evidence image and confirm OS-level :ro mount blocks it.",
+                   inputSchema={"type": "object", "properties": {
+                       "image_path": {"type": "string"},
+                   }, "required": ["image_path"]}),
     ]
 
 
@@ -64,6 +69,18 @@ async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             matches = current == arguments.get("expected_sha256", "")
             return [types.TextContent(type="text", text=json.dumps(
                 {"matches": matches, "actual": current, "expected": arguments.get("expected_sha256", "")}))]
+        elif name == "verify_write_block":
+            import os
+            canary_path = arguments["image_path"] + ".canary"
+            try:
+                with open(canary_path, "w") as f:
+                    f.write("canary")
+                os.remove(canary_path)
+                return [types.TextContent(type="text", text=json.dumps(
+                    {"write_blocked": False, "error_message": "CRITICAL: Write succeeded — evidence not protected"}))]
+            except (OSError, PermissionError) as e:
+                return [types.TextContent(type="text", text=json.dumps(
+                    {"write_blocked": True, "error_message": str(e)}))]
         else:
             return [types.TextContent(type="text", text=json.dumps({"error": f"Unknown tool: {name}"}))]
         return [types.TextContent(type="text", text=json.dumps(result.model_dump(), default=str))]

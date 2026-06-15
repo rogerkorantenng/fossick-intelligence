@@ -33,12 +33,15 @@ class ToolCallLog(BaseModel):
     image_sha256: str = ""
     hash_verified: bool = False
     spoliation_detected: bool = False
+    tokens_used: int = 0
+    retry_count: int = 0
+    retry_reason: Optional[str] = None
 
 
 class AgentMessage(BaseModel):
     from_agent: str
     to_agent: str
-    message_type: Literal["dispatch", "findings", "correction", "contradiction"]
+    message_type: Literal["dispatch", "findings", "correction", "contradiction", "constraint_verified"]
     timestamp: datetime
     content: str
     finding_count: int = 0

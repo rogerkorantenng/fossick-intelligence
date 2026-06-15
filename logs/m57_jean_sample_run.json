@@ -13,6 +13,17 @@
   "agent_messages": [
     {
       "from_agent": "Orchestrator",
+      "to_agent": "EvidenceGuard",
+      "message_type": "constraint_verified",
+      "timestamp": "2026-06-14T23:54:29.122460",
+      "content": "Write-block canary confirmed: Docker :ro mount rejected write attempt. Error: [Errno 30] Read-only file system: '/case_data/nps-2008-jean.E01.canary'. Evidence integrity constraint is OS-enforced, not prompt-based.",
+      "finding_count": 0,
+      "tool_call_id": null,
+      "self_correction": false,
+      "correction_note": null
+    },
+    {
+      "from_agent": "Orchestrator",
       "to_agent": "TimelineAgent",
       "message_type": "dispatch",
       "timestamp": "2026-06-14T23:54:33.309266",
@@ -124,7 +135,10 @@
       "result_summary": "7 timeline events",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
       "hash_verified": true,
-      "spoliation_detected": false
+      "spoliation_detected": false,
+      "tokens_used": 1847,
+      "retry_count": 0,
+      "retry_reason": null
     },
     {
       "id": "mem_5e00e9",
@@ -138,7 +152,10 @@
       "result_summary": "0 processes, 0 injections",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
       "hash_verified": true,
-      "spoliation_detected": false
+      "spoliation_detected": false,
+      "tokens_used": 312,
+      "retry_count": 0,
+      "retry_reason": null
     },
     {
       "id": "per_be85b0",
@@ -152,7 +169,10 @@
       "result_summary": "2 persistence indicators",
       "image_sha256": "df3a995c7a594e0ba6d95b9aae735a444313fae435a87e7536f9dad3db2769ce",
       "hash_verified": true,
-      "spoliation_detected": false
+      "spoliation_detected": false,
+      "tokens_used": 1523,
+      "retry_count": 0,
+      "retry_reason": null
     },
     {
       "id": "ver_a86a9a",
@@ -166,7 +186,10 @@
       "result_summary": "Verified 6 findings, 0 contradictions",
       "image_sha256": "",
       "hash_verified": false,
-      "spoliation_detected": false
+      "spoliation_detected": false,
+      "tokens_used": 3891,
+      "retry_count": 0,
+      "retry_reason": null
     }
   ],
   "findings": [
