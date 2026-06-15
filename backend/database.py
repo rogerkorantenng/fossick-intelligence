@@ -29,6 +29,7 @@ async def init_db(db: aiosqlite.Connection) -> None:
     for col, definition in [
         ("agent_messages", "TEXT NOT NULL DEFAULT '[]'"),
         ("self_corrections_applied", "INTEGER DEFAULT 0"),
+        ("accuracy_assessment", "TEXT"),
     ]:
         try:
             await db.execute(f"ALTER TABLE investigations ADD COLUMN {col} {definition}")
@@ -43,8 +44,8 @@ async def save_investigation(db: aiosqlite.Connection, report: InvestigationRepo
            (id, case_id, image_path, image_sha256, status, started_at, completed_at,
             findings, contradictions_detected, contradictions_resolved,
             execution_log, agent_messages, self_corrections_applied,
-            evidence_integrity_verified, error)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            evidence_integrity_verified, accuracy_assessment, error)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (report.id, report.case_id, report.image_path, report.image_sha256,
          report.status, report.started_at.isoformat(),
          report.completed_at.isoformat() if report.completed_at else None,
@@ -53,7 +54,9 @@ async def save_investigation(db: aiosqlite.Connection, report: InvestigationRepo
          json.dumps([l.model_dump() for l in report.execution_log], default=str),
          json.dumps([m.model_dump() for m in report.agent_messages], default=str),
          report.self_corrections_applied,
-         int(report.evidence_integrity_verified), report.error),
+         int(report.evidence_integrity_verified),
+         json.dumps(report.accuracy_assessment.model_dump()) if report.accuracy_assessment else None,
+         report.error),
     )
     await db.commit()
 
@@ -68,6 +71,7 @@ async def get_investigation(db: aiosqlite.Connection, investigation_id: str) -> 
         result["findings"] = json.loads(result["findings"])
         result["execution_log"] = json.loads(result["execution_log"])
         result["agent_messages"] = json.loads(result.get("agent_messages") or "[]")
+        result["accuracy_assessment"] = json.loads(result["accuracy_assessment"]) if result.get("accuracy_assessment") else None
         return result
 
 
