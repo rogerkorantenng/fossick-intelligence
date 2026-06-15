@@ -5,7 +5,7 @@ from pathlib import Path
 import aiosqlite
 from backend.config import settings
 from backend.database import init_db, save_investigation
-from backend.models import InvestigationReport, AgentMessage
+from backend.models import InvestigationReport, AgentMessage, AccuracyAssessment
 from backend.docker_client import get_docker_client
 from backend.agents.timeline_agent import TimelineAgent
 from backend.agents.memory_agent import MemoryAgent
@@ -220,6 +220,40 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
             evidence_ok = (final_hash == image_sha256)
         # multi-segment: integrity verified at collection time inside EvidenceContext
 
+    # Build accuracy self-assessment
+    single_source = [f for f in all_final if len(f.sources) == 1 and not f.contradiction]
+    multi_source = [f for f in all_final if len(f.sources) > 1 and not f.contradiction]
+    has_memory = len(memory_findings) > 0
+    accuracy = AccuracyAssessment(
+        covered_categories=list(filter(None, [
+            "filesystem_timeline",
+            "registry_persistence",
+            "startup_folders",
+            "memory_processes" if has_memory else None,
+        ])),
+        uncovered_categories=list(filter(None, [
+            "memory_processes" if not has_memory else None,
+            "browser_history",
+            "event_logs",
+            "prefetch_amcache",
+            "usb_artifacts",
+            "system_registry_hives",
+        ])),
+        lowest_confidence_areas=[
+            "all timeline findings are single-source (no memory corroboration for disk-only images)",
+            "registry parsing limited to NTUSER.DAT Run/RunOnce — SYSTEM and SOFTWARE hives not covered",
+        ],
+        known_limitations=[
+            "Memory Agent requires RAM capture (.vmem/.mem) — returns honest zero for disk-only images",
+            "Timeline uses SleuthKit fls — Plaso not available in this container build",
+            "Registry parsing via regipy covers NTUSER.DAT only; SYSTEM/SOFTWARE hives not parsed",
+            "No Prefetch, AmCache, or ShimCache analysis in current build",
+        ],
+        single_source_findings=len(single_source),
+        multi_source_findings=len(multi_source),
+        false_positive_risk="LOW" if len(contradiction_findings) > 0 else "MEDIUM",
+    )
+
     report.findings = all_final
     report.contradictions_detected = len(contradiction_findings)
     report.contradictions_resolved = len([c for c in contradiction_findings if c.confidence != "LOW"])
@@ -227,6 +261,7 @@ async def run_investigation(image_path: str, case_id: str | None = None) -> Inve
     report.agent_messages = agent_messages
     report.self_corrections_applied = self_corrections
     report.evidence_integrity_verified = evidence_ok
+    report.accuracy_assessment = accuracy
     report.status = "completed"
     report.completed_at = datetime.now()
 

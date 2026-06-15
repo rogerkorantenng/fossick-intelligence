@@ -63,17 +63,23 @@ Identify any additional contradictions.
 Return JSON:
 {{"verified_findings":[{{"id":"original_id","confidence":"HIGH|MEDIUM|LOW","corroborating_sources":["timeline","memory","persistence"]}}],"new_contradictions":[{{"title":"...","description":"...","severity":"high|medium"}}]}}"""
 
+        verifier_start = datetime.now()
         message = await self._get_client().messages.create(
             model="claude-sonnet-4-6", max_tokens=2048,
             messages=[{"role": "user", "content": synthesis_prompt}],
         )
+        verifier_duration_ms = int((datetime.now() - verifier_start).total_seconds() * 1000)
 
         log = ToolCallLog(
             id=call_id, tool_name="verifier_synthesis", agent="VerifierAgent",
-            called_at=datetime.now(),
+            called_at=verifier_start,
+            duration_ms=verifier_duration_ms,
             params={"finding_count": len(all_findings)},
             result_summary=f"Verified {len(all_findings)} findings, {len(contradictions)} contradictions",
             tokens_used=message.usage.input_tokens + message.usage.output_tokens,
+            # Verifier operates on structured findings, not the raw image — no image hash to verify
+            image_sha256="n/a — verifier operates on structured findings, not raw image",
+            hash_verified=False,
         )
 
         verified = list(all_findings)

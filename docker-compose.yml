@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+    image: fossick-mcp
     volumes:
       - ./mcp_server:/fossick/mcp_server
       - ${CASE_DATA_PATH:-./case_data}:/case_data:ro
@@ -10,3 +11,23 @@ services:
     tty: true
     environment:
       - PYTHONPATH=/fossick
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8002:8002"
+    volumes:
+      - .:/app
+      - ${CASE_DATA_PATH:-./case_data}:/case_data:ro
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:-}
+      - CASE_DATA_PATH=/case_data
+      - DB_PATH=/app/fossick.db
+      - DOCKER_IMAGE=fossick-mcp
+    depends_on:
+      - mcp
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8002

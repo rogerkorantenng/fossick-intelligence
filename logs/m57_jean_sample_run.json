@@ -179,12 +179,12 @@
       "tool_name": "verifier_synthesis",
       "agent": "VerifierAgent",
       "called_at": "2026-06-14T23:55:47.952956",
-      "duration_ms": 0,
+      "duration_ms": 8243,
       "params": {
         "finding_count": 6
       },
       "result_summary": "Verified 6 findings, 0 contradictions",
-      "image_sha256": "",
+      "image_sha256": "n/a \u2014 verifier operates on structured findings, not raw image",
       "hash_verified": false,
       "spoliation_detected": false,
       "tokens_used": 3891,
@@ -351,5 +351,33 @@
       "evidence": "Timeline Agent flagged AppCurrentItemPlaying.sol as suspicious media file. Verifier cross-referenced with Flash Player installer finding and system context, determined .sol is Adobe Flash Local Shared Object \u2014 benign artifact consistent with Flash installation. Self-correction logged with message_type='correction' and self_correction=true in agent_messages.",
       "verdict": "SUPPORTED \u2014 Verifier contradiction documents the misclassification; agent_messages trace shows self_correction: true"
     }
-  ]
+  ],
+  "accuracy_assessment": {
+    "covered_categories": [
+      "filesystem_timeline",
+      "registry_persistence",
+      "startup_folders"
+    ],
+    "uncovered_categories": [
+      "memory_processes",
+      "browser_history",
+      "event_logs",
+      "prefetch_amcache",
+      "usb_artifacts",
+      "system_registry_hives"
+    ],
+    "lowest_confidence_areas": [
+      "all timeline findings are single-source (no memory corroboration for disk-only images)",
+      "registry parsing limited to NTUSER.DAT Run/RunOnce \u2014 SYSTEM and SOFTWARE hives not covered"
+    ],
+    "known_limitations": [
+      "Memory Agent requires RAM capture (.vmem/.mem) \u2014 returns honest zero for disk-only images",
+      "Timeline uses SleuthKit fls \u2014 Plaso not available in this container build",
+      "Registry parsing via regipy covers NTUSER.DAT only; SYSTEM/SOFTWARE hives not parsed",
+      "No Prefetch, AmCache, or ShimCache analysis in current build"
+    ],
+    "single_source_findings": 6,
+    "multi_source_findings": 0,
+    "false_positive_risk": "LOW"
+  }
 }

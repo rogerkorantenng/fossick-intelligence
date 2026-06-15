@@ -50,6 +50,16 @@ class AgentMessage(BaseModel):
     correction_note: Optional[str] = None
 
 
+class AccuracyAssessment(BaseModel):
+    covered_categories: list[str] = Field(default_factory=list)
+    uncovered_categories: list[str] = Field(default_factory=list)
+    lowest_confidence_areas: list[str] = Field(default_factory=list)
+    known_limitations: list[str] = Field(default_factory=list)
+    single_source_findings: int = 0
+    multi_source_findings: int = 0
+    false_positive_risk: str = "LOW"
+
+
 class InvestigationReport(BaseModel):
     id: str
     case_id: str
@@ -65,4 +75,5 @@ class InvestigationReport(BaseModel):
     agent_messages: list[AgentMessage] = Field(default_factory=list)
     self_corrections_applied: int = 0
     evidence_integrity_verified: bool = False
+    accuracy_assessment: Optional[AccuracyAssessment] = None
     error: Optional[str] = None
